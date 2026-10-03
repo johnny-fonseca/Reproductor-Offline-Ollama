@@ -1,0 +1,3111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WebPlay — Reproductor de video local con funciones de IA: resumen, capítulos, chat, traducción, visión y comentarios en tiempo real.">
+    <!-- Versión segura y compatible sin media -->
+    <meta name="theme-color" content="#0f0f0f">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
+    <title>Reproductor de Video Pro</title>
+    <link rel="icon" href='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2231%22%20fill%3D%22%235b21b6%22%2F%3E%3Cpolygon%20points%3D%2224%2C18%2024%2C46%2048%2C32%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E'>
+    <link rel="stylesheet" href="css/ajustes.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/interfaz.css">
+    <link rel="stylesheet" href="css/reproductor.css">
+    <link rel="stylesheet" href="css/listas.css">
+    <link rel="stylesheet" href="css/ventanas-ia.css">
+    <link rel="stylesheet" href="css/configuracion.css">
+    <link rel="stylesheet" href="css/movil.css">
+    <link rel="stylesheet" href="css/galaxia.css">
+</head>
+<body data-theme="default">
+<a href="#main-content" class="skip-link" tabindex="0">Saltar al contenido principal</a>
+
+<noscript>
+    <div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;
+                justify-content:center;background:#0f0f0f;color:#fff;font-family:sans-serif;
+                padding:2rem;text-align:center;">
+        <p>⚠️ <strong>WebPlay requiere JavaScript</strong> para funcionar correctamente.
+           Por favor, actívalo en la configuración de tu navegador y recarga la página.</p>
+    </div>
+</noscript>
+
+<canvas id="galaxyCanvas" aria-hidden="true"></canvas>
+
+<div class="container">
+
+    <!-- ══════════ HEADER ══════════ -->
+    <header role="banner">
+        <h1>
+            <span class="header-logo" aria-hidden="true">
+                <svg viewBox="0 0 36 36" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+                    <path d="M0 18 C8 10,14 26,18 18 C22 10,28 26,36 18"/>
+                </svg>
+            </span>
+            WebPlay</h1>
+        <div class="header-controls">
+    <button type="button" class="theme-dot active"
+            data-theme-val="default"
+            title="Tema Oscuro"
+            aria-label="Activar tema oscuro">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+
+    <button type="button" class="theme-dot"
+            data-theme-val="light"
+            title="Tema Claro"
+            aria-label="Activar tema claro">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="5" fill="currentColor"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+    </button>
+
+    <input type="color" id="accentColorPicker"
+            value="#ff0033"
+            title="Color de acento"
+            aria-label="Elegir color de acento">
+</div>
+    </header>
+
+    <!-- ══════════ MAIN ══════════ -->
+    <div class="main-content" id="main-content" role="main">
+
+        <!-- ── VIDEO ── -->
+        <div class="video-section">
+            <div class="crt-ambient-wrap">
+            <div class="video-player" id="videoPlayerWrap">
+
+                <video id="videoPlayer"
+                       muted
+                       playsinline
+                       preload="metadata"
+                       width="1280" height="720"
+                       aria-label="Reproductor de video"></video>
+
+                <div class="video-top-gradient" aria-hidden="true"></div>
+                <div class="video-title-overlay"
+                     id="videoTitleOverlay"
+                     aria-live="polite"></div>
+
+                <div class="center-play-overlay"
+                     id="centerPlayOverlay">
+                    <button type="button"
+                            class="center-play-btn"
+                            id="centerPlayBtn"
+                            tabindex="-1"
+                            title="Reproducir"
+                            aria-label="Reproducir video">
+                        <svg class="icon icon-play" id="centerIconPlay" viewBox="0 0 24 24"
+                             aria-hidden="true" focusable="false">
+                            <path d="M10 8.5l6.5 3.5-6.5 3.5V8.5z" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"/>
+                        </svg>
+                        <svg class="icon icon-pause" id="centerIconPause" viewBox="0 0 24 24"
+                             aria-hidden="true" focusable="false" style="display:none">
+                            <rect x="6.5" y="4.5" width="4" height="15" rx="1.5" fill="currentColor"/>
+                            <rect x="13.5" y="4.5" width="4" height="15" rx="1.5" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
+                    <div class="loading-spinner"
+                         role="progressbar"
+                         aria-label="Cargando"></div>
+                    <span>Cargando video...</span>
+                </div>
+
+                <div class="video-empty-state" id="emptyState">
+                    <svg class="icon icon-xl" viewBox="0 0 24 24"
+                         style="opacity:.2"
+                         aria-hidden="true" focusable="false">
+                        <path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.82v6.361a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p>Selecciona un video para reproducir</p>
+                </div>
+
+                <div class="up-next-overlay" id="upNextOverlay" aria-live="polite">
+                    <span style="font-size:0.9rem;opacity:0.8;">Siguiente &rarr;</span>
+                    <div class="up-next-thumb"
+                         id="upNextThumb"
+                         role="img"
+                         aria-label="Miniatura siguiente video"></div>
+                    <div class="up-next-info">
+                        <div class="up-next-title" id="upNextTitle"></div>
+                        <div class="up-next-countdown"
+                             id="upNextCountdown"
+                             aria-label="Segundos restantes">5</div>
+                    </div>
+                    <button type="button"
+                            class="btn-primary"
+                            id="cancelUpNext"
+                            style="margin-top:8px;">
+                        Cancelar
+                    </button>
+                </div>
+
+                <div class="stats-panel" id="statsPanel" aria-live="polite"></div>
+
+                <button type="button"
+                        class="fullscreen-more-btn"
+                        id="fullscreenMoreBtn"
+                        aria-label="Ver más videos"
+                        aria-expanded="false"
+                        aria-controls="fullscreenVideoShelf">
+                    <span>Ver más videos</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="m7 10 5 5 5-5" fill="none" stroke="currentColor"
+                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <section class="fullscreen-video-shelf"
+                         id="fullscreenVideoShelf"
+                         aria-label="Videos de la galería"
+                         aria-hidden="true"
+                         inert>
+                    <div class="fullscreen-video-shelf-header">
+                        <h2>Más videos de la galería</h2>
+                        <button type="button"
+                                class="fullscreen-shelf-close"
+                                id="fullscreenShelfClose"
+                                aria-label="Cerrar videos">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="m6 6 12 12M18 6 6 18" fill="none"
+                                      stroke="currentColor" stroke-width="2"
+                                      stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="fullscreen-video-track"
+                         id="fullscreenVideoTrack"
+                         role="group"
+                         aria-label="Videos disponibles"></div>
+                </section>
+
+                <!-- ── CONTROLES ── -->
+                <div class="video-controls"
+                     id="videoControls"
+                     aria-label="Controles de video">
+
+                    <div class="progress-container"
+                         id="progressContainer"
+                         role="slider"
+                         aria-label="Progreso del video"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         aria-valuenow="0"
+                         tabindex="0">
+                        <div class="progress-buffered" id="progressBuffered"></div>
+                        <div class="progress-bar" id="progressBar"></div>
+                        <div class="progress-scrubber"
+                             id="progressScrubber"
+                             aria-hidden="true"></div>
+                        <div class="progress-hover-time"
+                             id="progressHoverTime"
+                             aria-hidden="true"></div>
+                        <div class="hover-preview"
+                             id="hoverPreview"
+                             aria-hidden="true">
+                            <img id="hoverPreviewImg"
+                                 src=""
+                                 alt=""
+                                 width="188" height="106"
+                                 role="presentation"
+                                 loading="lazy"
+                                 decoding="async">
+                            <div class="hover-info-bubble">
+                                <span class="hover-time-label"
+                                      id="hoverPreviewTime">0:00</span>
+                                <span class="hover-chapter-label"
+                                      id="hoverPreviewChapter"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="controls-row">
+                        <div class="controls-left">
+
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="prevBtn"
+                                    data-tooltip="Anterior"
+                                    aria-label="Video anterior">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M19 20L9 12l10-8v16z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+
+                            <button type="button"
+                                    class="ctrl-btn play-pause-btn"
+                                    id="playPauseBtn"
+                                    data-tooltip="Reproducir"
+                                    aria-label="Reproducir o pausar">
+                                <svg class="icon" id="iconPlay"
+                                     viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M6.5 4.5l12 7.5-12 7.5V4.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="icon" id="iconPause"
+                                     viewBox="0 0 24 24"
+                                     style="display:none"
+                                     aria-hidden="true" focusable="false">
+                                    <rect x="5.5" y="4.5" width="4" height="15" rx="1.5" fill="currentColor"/>
+                                    <rect x="14.5" y="4.5" width="4" height="15" rx="1.5" fill="currentColor"/>
+                                </svg>
+                            </button>
+
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="nextBtn"
+                                    data-tooltip="Siguiente"
+                                    aria-label="Siguiente video">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M5 4l10 8-10 8V4z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="19" y1="4" x2="19" y2="20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+
+                            <div class="volume-control">
+                                <button type="button"
+                                        class="ctrl-btn"
+                                        id="volumeBtn"
+                                        data-tooltip="Silenciar"
+                                        aria-label="Control de volumen">
+                                    <svg class="icon" id="iconVolUp"
+                                         viewBox="0 0 24 24"
+                                         aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                    <svg class="icon" id="iconVolDown"
+                                         viewBox="0 0 24 24"
+                                         style="display:none"
+                                         aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                    <svg class="icon" id="iconMute"
+                                         viewBox="0 0 24 24"
+                                         style="display:none"
+                                         aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M23 9l-6 6M17 9l6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <div class="volume-slider-wrap">
+                                    <div class="volume-slider"
+                                         id="volumeSlider"
+                                         role="slider"
+                                         aria-label="Ajustar volumen"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100"
+                                         aria-valuenow="100"
+                                         tabindex="0">
+                                        <div class="volume-bar"
+                                             id="volumeBar"
+                                             style="width:100%"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span class="time-display"
+                                  id="timeDisplay"
+                                  title="Clic para cambiar a tiempo restante"
+                                  role="timer"
+                                  aria-live="off">0:00 / 0:00</span>
+                        </div>
+
+                        <div class="controls-right">
+
+                            <!-- Subtítulos -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="subtitleBtn"
+                                    data-tooltip="Subtítulos"
+                                    aria-label="Activar subtítulos">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                                    <path d="M6.5 10.5h5M15 10.5h2.5M6.5 14.5h2.5M11 14.5h6.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- Volumen de la voz TTS -->
+                            <div class="volume-control tts-volume-control">
+                                <span class="tts-ai-badge" aria-hidden="true">IA</span>
+                                <button type="button"
+                                        class="ctrl-btn"
+                                        id="ttsVolumeBtn"
+                                        data-tooltip="Volumen de voz IA"
+                                        aria-label="Silenciar voz IA"
+                                        aria-pressed="false">
+                                    <svg class="icon" id="ttsIconVolUp" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                    <svg class="icon" id="ttsIconVolDown" viewBox="0 0 24 24" style="display:none" aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                    <svg class="icon" id="ttsIconMute" viewBox="0 0 24 24" style="display:none" aria-hidden="true" focusable="false">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M23 9l-6 6M17 9l6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <div class="volume-slider-wrap">
+                                    <div class="volume-slider" id="ttsVolumeSlider" role="slider" aria-label="Volumen de la voz IA" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" tabindex="0">
+                                        <div class="volume-bar" id="ttsVolumeBar" style="width:100%"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resumen IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="summaryBtn"
+                                    data-tooltip="Resumir con IA"
+                                    aria-label="Generar resumen con IA">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M16 13H8M16 17H8M10 9H8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- Capítulos IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="chaptersIABtn"
+                                    data-tooltip="Capítulos con IA"
+                                    aria-label="Generar capítulos con IA">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0
+                                             4h12v2H3v-2zm0 4h8v2H3v-2z"
+                                          fill="currentColor"/>
+                                    <circle cx="19" cy="17" r="3"
+                                            fill="none" stroke="currentColor"
+                                            stroke-width="2"/>
+                                    <path d="M18 16.5l1 1 1.5-1.5"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="1.5"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- Chat IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="chatIABtn"
+                                    data-tooltip="Chat IA"
+                                    aria-label="Chatear con IA sobre el video">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="8" cy="10" r="1" fill="currentColor"/>
+                                    <circle cx="12" cy="10" r="1" fill="currentColor"/>
+                                    <circle cx="16" cy="10" r="1" fill="currentColor"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- Traducir IA -->
+							<button type="button"
+									class="ctrl-btn"
+									id="translateIABtn"
+									data-tooltip="Traducir subtítulos"
+									aria-label="Traducir subtítulos con IA">
+								<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+									<path fill="currentColor" d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+								</svg>
+								<span class="summary-ai-badge" aria-hidden="true"></span>
+							</button>
+
+
+                            <!-- Visión IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="visionIABtn"
+                                    data-tooltip="Visión IA"
+                                    aria-label="Analizar fotograma con IA">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- Etiquetas IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="tagsIABtn"
+                                    data-tooltip="Etiquetar con IA"
+                                    aria-label="Generar etiquetas con IA">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="7" cy="7" r="1.75" fill="currentColor"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- Comentarios IA -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="commentaryIABtn"
+                                    data-tooltip="Comentarios IA en vivo"
+                                    aria-label="Activar comentarios IA sobre el video"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M17 12H3a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h11l3 3V14a2 2 0 0 0-2-2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M7 12V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span class="summary-ai-badge" aria-hidden="true"></span>
+                            </button>
+
+                            <!-- PiP -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="pipBtn"
+                                    data-tooltip="PiP"
+                                    aria-label="Picture-in-Picture">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <rect x="3" y="5" width="18" height="14"
+                                          rx="2" ry="2" fill="none"
+                                          stroke="currentColor" stroke-width="2"/>
+                                    <rect x="13" y="12" width="6" height="4"
+                                          rx="1" fill="currentColor"/>
+                                </svg>
+                            </button>
+
+                            <!-- HDR -->
+                            <button type="button"
+									class="ctrl-btn"
+									id="hdrBtn"
+									data-tooltip="HDR"
+									aria-label="Modo HDR">
+								<svg class="icon" viewBox="0 0 24 24"
+									 aria-hidden="true" focusable="false"
+									 fill="currentColor">
+									<path d="M0 0h24v24H0z" fill="none"/>
+									<path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"/>
+								</svg>
+							</button>
+
+                            <!-- Loop -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="loopBtn"
+                                    data-tooltip="Repetir"
+                                    aria-label="Repetir"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M17 2l4 4-4 4M3 11v-1a4 4 0 0 1
+                                             4-4h14M7 22l-4-4 4-4M21 13v1a4 4
+                                             0 0 1-4 4H3"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- Shuffle -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="shuffleBtn"
+                                    data-tooltip="Aleatorio"
+                                    aria-label="Aleatorio"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M16 3h5v5M4 20l17-17M21
+                                             16v5h-5M15 15l6 6M4 4l5 5"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- A-B -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="abRepeatBtn"
+                                    data-tooltip="A-B"
+                                    aria-label="Repetición A-B"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M17 2l4 4-4 4M3 11v-1a4 4 0 0 1
+                                             4-4h14M7 22l-4-4 4-4M21 13v1a4 4
+                                             0 0 1-4 4H3"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                    <text x="12" y="15.5"
+                                          font-size="7"
+                                          font-family="system-ui,sans-serif"
+                                          font-weight="bold"
+                                          fill="currentColor"
+                                          text-anchor="middle">A-B</text>
+                                </svg>
+                            </button>
+
+                            <!-- Capítulo -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="chapterBtn"
+                                    data-tooltip="Capítulo"
+                                    aria-label="Añadir capítulo">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1
+                                             2-2h10a2 2 0 0 1 2 2z"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                    <path d="M12 7v6M9 10h6"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- Stats -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="statsBtn"
+                                    data-tooltip="Estadísticas"
+                                    aria-label="Estadísticas"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M3 20h18M18 20V10M12 20V4M6 20v-6"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="2" stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- Speed -->
+                            <div style="position:relative;">
+<button type="button"
+                                    class="speed-btn"
+                                    id="speedBtn"
+                                    data-tooltip="Velocidad"
+                                    aria-haspopup="true"
+                                    aria-expanded="false"
+                                    aria-controls="speedMenu"
+                                    aria-label="Velocidad de reproducción">1x</button>
+                                <div class="speed-menu"
+                                     id="speedMenu"
+                                     role="menu"
+                                     aria-label="Velocidades"
+                                     aria-labelledby="speedBtn">
+                                    <button type="button" class="speed-option"
+                                            data-speed="0.25"
+                                            role="menuitemradio"
+                                            aria-checked="false">0.25x</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="0.5"
+                                            role="menuitemradio"
+                                            aria-checked="false">0.5x</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="0.75"
+                                            role="menuitemradio"
+                                            aria-checked="false">0.75x</button>
+                                    <button type="button" class="speed-option active"
+                                            data-speed="1"
+                                            role="menuitemradio"
+                                            aria-checked="true">Normal</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="1.25"
+                                            role="menuitemradio"
+                                            aria-checked="false">1.25x</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="1.5"
+                                            role="menuitemradio"
+                                            aria-checked="false">1.5x</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="1.75"
+                                            role="menuitemradio"
+                                            aria-checked="false">1.75x</button>
+                                    <button type="button" class="speed-option"
+                                            data-speed="2"
+                                            role="menuitemradio"
+                                            aria-checked="false">2x</button>
+                                </div>
+                            </div>
+
+                            <!-- Teatro / Modo Cine -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="teatroBtn"
+                                    data-tooltip="Modo cine"
+                                    aria-label="Modo cine"
+                                    aria-pressed="false">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <rect x="2" y="5" width="20" height="14" rx="2"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="1.75" stroke-linecap="round"/>
+                                    <path d="M8 5v14M16 5v14"
+                                          fill="none" stroke="currentColor"
+                                          stroke-width="1.5" stroke-linecap="round"
+                                          opacity="0.55"/>
+                                </svg>
+                            </button>
+
+                            <!-- Fullscreen -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="fullscreenBtn"
+                                    data-tooltip="Pantalla completa"
+                                    aria-label="Pantalla completa">
+                                <svg class="icon" id="iconExpand"
+                                     viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="icon" id="iconCompress"
+                                     viewBox="0 0 24 24"
+                                     style="display:none"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+
+                            <!-- Snapshot -->
+                            <button type="button"
+                                    class="ctrl-btn"
+                                    id="snapshotBtn"
+                                    data-tooltip="Capturar"
+                                    aria-label="Capturar fotograma">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                                </svg>
+                            </button>
+
+                        </div><!-- /.controls-right -->
+                    </div><!-- /.controls-row -->
+                </div><!-- /.video-controls -->
+            </div><!-- /.video-player -->
+            </div><!-- /.crt-ambient-wrap -->
+        </div><!-- /.video-section -->
+
+        <!-- ── PLAYLIST ── -->
+        <div class="playlist-section">
+            <!-- Pestaña para restaurar playlist en modo cine -->
+            <button type="button"
+                    class="theatre-playlist-toggle"
+                    id="theatrePlaylistToggle"
+                    title="Mostrar lista de reproducción"
+                    aria-label="Mostrar lista de reproducción">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor"
+                          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <div class="playlist-header">
+                <h2>
+                    <svg class="icon" viewBox="0 0 24 24"
+						 style="color:var(--yt-red)"
+						 aria-hidden="true" focusable="false">
+					  <path d="M3.5 6.2c0-.75.82-1.2 1.45-.82l3.4 2.05c.62.38.62 1.26 0 1.64l-3.4 2.05c-.63.38-1.45-.07-1.45-.82V6.2z"
+							fill="currentColor"/>
+					  
+					  <rect x="10.5" y="5.5" width="10" height="1.7" rx=".85"
+							fill="currentColor"/>
+					  
+					  <rect x="10.5" y="9.5" width="10" height="1.7" rx=".85"
+							fill="currentColor"/>
+					  
+					  <rect x="3.5" y="15" width="17" height="1.7" rx=".85"
+							fill="currentColor" opacity=".9"/>
+					  
+					  <rect x="3.5" y="19" width="17" height="1.7" rx=".85"
+							fill="currentColor" opacity=".9"/>
+					</svg>
+                    Lista de Reproducción
+                </h2>
+                <button type="button"
+                        class="icon-btn"
+                        id="settingsBtn"
+                        title="Configuración"
+                        aria-label="Abrir configuración">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="search-container">
+                <svg class="icon search-icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                    <path d="M21 21l-5-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+                <input type="search"
+                       id="search-input"
+                       placeholder="Buscar videos..."
+                       autocomplete="off"
+                       spellcheck="false"
+                       aria-label="Buscar videos en la lista">
+            </div>
+            <div class="playlist"
+                 id="playlistEl"
+                 role="list"
+                 aria-label="Lista de reproducción">
+                <div class="empty-state" id="playlistEmpty">
+					<svg class="icon icon-xl" viewBox="0 0 24 24"
+						 style="opacity:.2"
+						 aria-hidden="true" focusable="false">
+						<!-- Pantalla del reproductor de video -->
+						<rect x="2.5" y="4.5" width="19" height="15" rx="2" ry="2"
+							  fill="none" stroke="currentColor" stroke-width="1.75"
+							  stroke-linecap="round" stroke-linejoin="round"/>
+						<!-- Botón de reproducción (triángulo) -->
+						<polygon points="10,9 10,15 16,12"
+								 fill="none" stroke="currentColor" stroke-width="1.75"
+								 stroke-linejoin="round"/>
+					</svg>
+					<p>La lista de reproducción está vacía</p>
+				</div>
+            </div>
+        </div><!-- /.playlist-section -->
+
+    </div><!-- /.main-content -->
+
+    <!-- ── GALERÍA ── -->
+    <div class="gallery-section" id="gallerySectionWrap">
+        <div class="gallery-header">
+            <h2>
+                <svg class="icon" viewBox="0 0 24 24"
+                     style="color:var(--yt-red)"
+                     aria-hidden="true" focusable="false">
+                    <rect x="2" y="5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                    <path d="M2 10h20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="6" cy="7.5" r="1" fill="currentColor"/>
+                    <circle cx="9.5" cy="7.5" r="1" fill="currentColor"/>
+                    <path d="M10 14l3 3 4-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Galería de Videos
+            </h2>
+            <div class="split-btn-group" role="group" aria-label="Opciones de importación de vídeos">
+                <button type="button"
+                        class="split-btn-part left-part"
+                        id="addFilesBtn"
+                        title="Seleccionar archivos de vídeo (con vista previa)"
+                        aria-label="Seleccionar archivos de vídeo">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Vídeos
+                </button>
+                <div class="split-btn-divider" aria-hidden="true"></div>
+                <button type="button"
+                        class="split-btn-part right-part"
+                        id="addVideosBtn"
+                        title="Importar una carpeta completa de vídeos"
+                        aria-label="Importar carpeta de vídeos">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Carpeta
+                </button>
+            </div>
+        </div>
+        <div class="gallery"
+             id="gallery"
+             role="list"
+             aria-label="Galería de videos">
+            <div class="empty-state" id="galleryEmpty">
+                <svg class="icon icon-xl" viewBox="0 0 24 24"
+                     style="opacity:.2"
+                     aria-hidden="true" focusable="false">
+                    <rect x="2" y="5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                    <path d="M2 10h20" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M9 15l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="17.5" r="0.75" fill="currentColor"/>
+                </svg>
+                <p>Haz clic en "Importar Carpeta" para cargar los videos</p>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.container -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     M O D A L E S
+     ══════════════════════════════════════════════════════════════ -->
+
+<!-- ── SETTINGS ── -->
+<div class="modal-overlay"
+     id="settingsModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                                        aria-hidden="true" focusable="false">
+                                        <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                Configuración
+            </h3>
+            <button type="button"
+                    class="modal-close"
+                    id="modalClose"
+                    aria-label="Cerrar">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                             6.41 10.59 12 5 17.59 6.41 19 12
+                             13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="setting-row">
+                <label class="setting-label" for="autoResume">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10
+                                 10 10-4.48 10-10S17.52 2 12 2zm-2
+                                 14.5v-9l6 4.5-6 4.5z"/>
+                    </svg>
+                    Reanudar automáticamente
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoResume">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="genThumb">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1
+                                 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1
+                                 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5
+                                 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    Generar miniaturas
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="genThumb" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="enablePreviews">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73
+                                 4.39 6 7.5 11 7.5s9.27-3.11
+                                 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12
+                                 17c-2.76 0-5-2.24-5-5s2.24-5 5-5
+                                 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66
+                                 0-3 1.34-3 3s1.34 3 3 3 3-1.34
+                                 3-3-1.34-3-3-3z"/>
+                    </svg>
+                    Previsualización hover
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="enablePreviews" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="enableShortcuts">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0
+                                 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9
+                                 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0
+                                 3h2v2H8v-2zm-1 5H5v-2h2v2zm0-3H5v-2h2v2zm0-3H5V8h2v2zm9
+                                 6h-8v-2h8v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm3
+                                 6h-2v-2h2v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+                    </svg>
+                    Atajos de teclado
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="enableShortcuts" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="pinHeader">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                    </svg>
+                    Fijar Cabecera
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="pinHeader">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="enableMochiAi">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 3 6.5 9.5 0 12l6.5 2.5L9 21l2.5-6.5L18 12l-6.5-2.5zm7.5 5.5l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z" fill="currentColor"/>
+                    </svg>
+                    Activar Mochi-IA
+                </label>
+                <label class="toggle-switch mochi-toggle" data-mode="off" title="Mochi desactivado">
+                    <input type="checkbox" id="enableMochiAi">
+                    <span class="toggle-slider mochi-toggle__slider" aria-hidden="true">
+                        <span class="mochi-toggle__marks"><i>♂</i><i>♀</i><i>×</i></span>
+                    </span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label" for="mochiVoiceEnabled">Voz de Mochi</label>
+                <label class="toggle-switch" title="Activar o silenciar la voz de Mochi">
+                    <input type="checkbox" id="mochiVoiceEnabled" aria-describedby="mochiVoiceStatus">
+                    <span class="toggle-slider" aria-hidden="true"></span>
+                </label>
+            </div>
+            <p class="setting-hint" id="mochiVoiceStatus" aria-live="polite">Voz silenciada</p>
+            <div class="setting-row">
+                <label class="setting-label" for="ultraPerformance">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 2v11h3v9l7-12h-4l4-8z"
+                              fill="currentColor"/>
+                    </svg>
+                    Ultra Rendimiento
+                </label>
+                <label class="toggle-switch"
+                       title="Desactiva animaciones y previsualizaciones para equipos con recursos limitados.">
+                    <input type="checkbox"
+                           id="ultraPerformance"
+                           aria-describedby="ultraPerformanceHint">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <p class="setting-hint" id="ultraPerformanceHint">
+                Desactiva animaciones y previsualizaciones para equipos
+                con recursos limitados.
+            </p>
+			<div class="setting-row">
+                <label class="setting-label" for="sleepTimer">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10
+                                 9.99 10C17.52 22 22 17.52 22 12S17.52
+                                 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8
+                                 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25
+                                 3.15.75-1.23-4.5-2.67V7z"
+                              fill="currentColor"/>
+                    </svg>
+                    Temporizador (min)
+                </label>
+                <input type="number"
+                       id="sleepTimer"
+                       min="0"
+                       max="480"
+                       value="0"
+                       inputmode="numeric"
+                       style="width:60px;padding:6px 8px;
+                              background:var(--yt-surface-hover);
+                              border:1px solid var(--yt-border);
+                              border-radius:6px;color:var(--yt-text);
+                              font-family:inherit;font-size:0.9rem;">
+            </div>
+            <div class="setting-actions" style="justify-content:space-between;">
+                <button type="button"
+                        class="btn-secondary"
+                        id="exportConfigBtn">Exportar</button>
+                <input type="file"
+                       id="importConfigInput"
+                       accept=".json"
+                       style="display:none;"
+                       aria-hidden="true">
+                <button type="button"
+                        class="btn-secondary"
+                        id="importConfigBtn">Importar</button>
+                <button type="button"
+                        class="btn-secondary"
+                        id="clearCacheBtn">Limpiar caché</button>
+            </div>
+            <div class="setting-actions">
+                <button type="button"
+                        class="btn-primary"
+                        id="saveSettingsBtn">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0
+                                 2 2h14a2 2 0 0 0 2-2V7l-4-4zM12 19a3
+                                 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"/>
+                    </svg>
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── SUMMARY IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="summaryModal"
+     role="dialog"
+     aria-labelledby="summaryModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--summary">
+        <div class="modal-header floating-window__header">
+            <h3 id="summaryModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2
+                             2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5
+                             14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"
+                          fill="currentColor"/>
+                </svg>
+                Resumen con IA
+                <span class="summary-model-badge" id="summaryModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="summaryModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body">
+            <div class="summary-config" id="summaryConfig">
+                <div class="setting-row">
+                    <label class="setting-label" for="ollamaModel">Modelo</label>
+                    <div class="summary-url-group">
+                        <select id="ollamaModel" class="summary-select">
+                            <option value="">Cargando…</option>
+                        </select>
+                        <button type="button"
+                                id="refreshModelsBtn"
+                                class="ctrl-btn"
+                                title="Recargar modelos"
+                                aria-label="Recargar modelos">
+                            <svg class="icon" viewBox="0 0 24 24"
+                                 aria-hidden="true">
+                                <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                         4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                         8 7.99 8c3.73 0 6.84-2.55
+                                         7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                         18c-3.31 0-6-2.69-6-6s2.69-6
+                                         6-6c1.66 0 3.14.69 4.22 1.78L13
+                                         11h7V4l-2.35 2.35z"
+                                      fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="ollamaUrl">URL Ollama</label>
+                    <input type="url" id="ollamaUrl"
+                           class="summary-input"
+                           value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="summaryLanguage">Idioma</label>
+                    <select id="summaryLanguage" class="summary-select">
+                        <option value="español">Español</option>
+                        <option value="inglés">Inglés</option>
+                        <option value="francés">Francés</option>
+                        <option value="alemán">Alemán</option>
+                        <option value="portugués">Portugués</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="summaryStyle">Estilo</label>
+                    <select id="summaryStyle" class="summary-select">
+                        <option value="conciso">Conciso</option>
+                        <option value="detallado">Detallado</option>
+                        <option value="bullet">Viñetas</option>
+                        <option value="parrafo">Párrafo</option>
+                        <option value="actas">Actas</option>
+                    </select>
+                </div>
+                <div class="setting-row"
+                     style="flex-direction:column;align-items:flex-start;">
+                    <label class="setting-label"
+                           for="summaryCustomPrompt"
+                           style="margin-bottom:6px;">
+                        Instrucción extra
+                    </label>
+                    <textarea id="summaryCustomPrompt"
+                              class="summary-textarea"
+                              rows="2"
+                              placeholder="Ej: Enfócate en los aspectos técnicos..."></textarea>
+                </div>
+                <div class="summary-subtitle-info" id="summarySubtitleInfo">
+                    <svg class="icon sub-icon" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <rect x="3" y="5" width="18" height="14"
+                              rx="2" ry="2" fill="none"
+                              stroke="currentColor" stroke-width="2"/>
+                        <path d="M7 10h4M15 10h2M7 14h2M11 14h6"
+                              fill="none" stroke="currentColor"
+                              stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span id="summarySubtitleStatus">Sin subtítulos</span>
+                </div>
+                <div class="summary-actions-row">
+                    <button type="button"
+                            class="btn-primary"
+                            id="generateSummaryBtn">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M9 21c0 .55.45 1 1 1h4c.55 0
+                                     1-.45 1-1v-1H9v1zm3-19C8.14 2 5
+                                     5.14 5 9c0 2.38 1.19 4.47 3
+                                     5.74V17c0 .55.45 1 1 1h6c.55
+                                     0 1-.45 1-1v-2.26c1.81-1.27
+                                     3-3.36 3-5.74 0-3.86-3.14-7-7-7z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Generar Resumen
+                    </button>
+                    <button type="button"
+                            class="btn-secondary"
+                            id="cancelSummaryBtn"
+                            style="display:none;">Cancelar</button>
+                </div>
+            </div>
+            <div class="summary-loading"
+                 id="summaryLoading"
+                 style="display:none;"
+                 aria-live="polite">
+                <div class="loading-spinner" role="progressbar"></div>
+                <p class="summary-loading-msg" id="summaryLoadingMsg">Conectando…</p>
+                <div class="summary-stream-preview"
+                     id="summaryStreamPreview"
+                     aria-hidden="true"></div>
+            </div>
+            <div id="summaryResult" style="display:none;margin-top:16px;">
+                <div class="summary-result-header">
+                    <h4>Resultado</h4>
+                    <div class="summary-result-actions">
+                        <button type="button"
+                                class="btn-secondary"
+                                id="copySummaryBtn">Copiar</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="exportSummaryBtn">.txt</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="newSummaryBtn">Nuevo</button>
+                    </div>
+                </div>
+                <div class="summary-output" id="summaryOutput"></div>
+                <div class="summary-meta" id="summaryMeta"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── CHAPTERS IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="chaptersIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="chaptersIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--chapters">
+        <div class="modal-header floating-window__header">
+            <h3 id="chaptersIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h12v2H3v-2zm0
+                             4h8v2H3v-2z" fill="currentColor"/>
+                    <circle cx="19" cy="17" r="3" fill="none"
+                            stroke="currentColor" stroke-width="2"/>
+                    <path d="M18 16.5l1 1 1.5-1.5" fill="none"
+                          stroke="currentColor" stroke-width="1.5"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Capítulos IA
+                <span class="summary-model-badge" id="chaptersIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="chaptersIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body">
+            <div class="summary-config" id="chaptersIAConfig">
+                <div class="setting-row">
+                    <label class="setting-label" for="chaptersIAModel">Modelo</label>
+                    <div class="summary-url-group">
+                        <select id="chaptersIAModel" class="summary-select">
+                            <option value="">Cargando…</option>
+                        </select>
+                        <button type="button"
+                                id="chaptersIARefreshModelsBtn"
+                                class="ctrl-btn"
+                                title="Recargar modelos"
+                                aria-label="Recargar modelos">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                         4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                         8 7.99 8c3.73 0 6.84-2.55
+                                         7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                         18c-3.31 0-6-2.69-6-6s2.69-6
+                                         6-6c1.66 0 3.14.69 4.22 1.78L13
+                                         11h7V4l-2.35 2.35z"
+                                      fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="chaptersIAUrl">URL Ollama</label>
+                    <input type="url" id="chaptersIAUrl"
+                           class="summary-input"
+                           value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="chaptersIACount">Capítulos</label>
+                    <select id="chaptersIACount"
+                            class="summary-input"
+                            style="width:auto;min-width:160px;">
+                        <option value="0" selected>Automático</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="chaptersIALanguage">Idioma</label>
+                    <select id="chaptersIALanguage" class="summary-select">
+                        <option value="español">Español</option>
+                        <option value="inglés">Inglés</option>
+                        <option value="francés">Francés</option>
+                        <option value="alemán">Alemán</option>
+                        <option value="portugués">Portugués</option>
+                    </select>
+                </div>
+                <div class="setting-row"
+                     style="flex-direction:column;align-items:flex-start;">
+                    <label class="setting-label"
+                           for="chaptersIACustomPrompt"
+                           style="margin-bottom:6px;">
+                        Instrucción extra
+                    </label>
+                    <textarea id="chaptersIACustomPrompt"
+                              class="summary-textarea"
+                              rows="2"
+                              placeholder="Ej: Detecta cambios de tema..."></textarea>
+                </div>
+                <div class="summary-subtitle-info" id="chaptersIASubtitleInfo">
+                    <svg class="icon sub-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="5" width="18" height="14"
+                              rx="2" ry="2" fill="none"
+                              stroke="currentColor" stroke-width="2"/>
+                        <path d="M7 10h4M15 10h2M7 14h2M11 14h6"
+                              fill="none" stroke="currentColor"
+                              stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span id="chaptersIASubtitleStatus">Sin subtítulos</span>
+                </div>
+                <div class="summary-actions-row">
+                    <button type="button"
+                            class="btn-primary"
+                            id="generateChaptersIABtn">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M9 21c0 .55.45 1 1 1h4c.55 0
+                                     1-.45 1-1v-1H9v1zm3-19C8.14 2 5
+                                     5.14 5 9c0 2.38 1.19 4.47 3
+                                     5.74V17c0 .55.45 1 1 1h6c.55
+                                     0 1-.45 1-1v-2.26c1.81-1.27
+                                     3-3.36 3-5.74 0-3.86-3.14-7-7-7z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Generar Capítulos
+                    </button>
+                    <button type="button"
+                            class="btn-secondary"
+                            id="cancelChaptersIABtn"
+                            style="display:none;">Cancelar</button>
+                </div>
+            </div>
+            <div class="summary-loading"
+                 id="chaptersIALoading"
+                 style="display:none;"
+                 aria-live="polite">
+                <div class="loading-spinner" role="progressbar"></div>
+                <p class="summary-loading-msg"
+                   id="chaptersIALoadingMsg">Conectando…</p>
+                <div class="summary-stream-preview"
+                     id="chaptersIAStreamPreview"
+                     aria-hidden="true"></div>
+            </div>
+            <div id="chaptersIAResult"
+                 style="display:none;margin-top:16px;">
+                <div class="summary-result-header">
+                    <h4>Capítulos Generados</h4>
+                    <div class="summary-result-actions">
+                        <button type="button"
+                                class="btn-primary"
+                                id="applyChaptersIABtn">Aplicar</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="copyChaptersIABtn">Copiar</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="exportChaptersIABtn">.txt</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="newChaptersIABtn">Nuevo</button>
+                    </div>
+                </div>
+                <div class="summary-output" id="chaptersIAOutput"></div>
+                <div class="summary-meta" id="chaptersIAMeta"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── CHAT IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="chatIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="chatIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--chat">
+        <div class="modal-header floating-window__header">
+            <h3 id="chatIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1
+                             0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0
+                             14H5.17L4 17.17V4h16v12z"
+                          fill="currentColor"/>
+                    <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"
+                          fill="currentColor"/>
+                </svg>
+                Chat IA
+                <span class="summary-model-badge" id="chatIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="chatIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body chat-ia-body">
+            <details class="chat-ia-config" id="chatIAConfig">
+                <summary class="chat-ia-config-toggle">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94
+                                 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61
+                                 l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94
+                                 l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24
+                                 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94
+                                 l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61
+                                 l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58
+                                 c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96
+                                 c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24
+                                 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96
+                                 c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58
+                                 zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6
+                                 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                              fill="currentColor"/>
+                    </svg>
+                    Configuración
+                </summary>
+                <div class="chat-ia-config-body">
+                    <div class="setting-row">
+                        <label class="setting-label" for="chatIAModel">Modelo</label>
+                        <div class="summary-url-group">
+                            <select id="chatIAModel" class="summary-select">
+                                <option value="">Cargando…</option>
+                            </select>
+                            <button type="button"
+                                    id="chatIARefreshModelsBtn"
+                                    class="ctrl-btn"
+                                    title="Recargar modelos"
+                                    aria-label="Recargar modelos">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true">
+                                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                             4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                             8 7.99 8c3.73 0 6.84-2.55
+                                             7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                             18c-3.31 0-6-2.69-6-6s2.69-6
+                                             6-6c1.66 0 3.14.69 4.22 1.78L13
+                                             11h7V4l-2.35 2.35z"
+                                          fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="chatIAUrl">URL Ollama</label>
+                        <input type="url" id="chatIAUrl"
+                               class="summary-input"
+                               value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                    </div>
+                    <div class="summary-subtitle-info" id="chatIASubtitleInfo">
+                        <svg class="icon sub-icon" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="14"
+                                  rx="2" ry="2" fill="none"
+                                  stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 10h4M15 10h2M7 14h2M11 14h6"
+                                  fill="none" stroke="currentColor"
+                                  stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span id="chatIASubtitleStatus">Sin subtítulos</span>
+                    </div>
+                </div>
+            </details>
+            <div class="chat-ia-messages"
+                 id="chatIAMessages"
+                 role="log"
+                 aria-live="polite">
+                <div class="chat-ia-msg chat-ia-msg--system"
+                     id="chatIAWelcome">
+                    <div class="chat-ia-msg-content">
+                        <p><strong>💬 Chat sobre el video</strong></p>
+                        <p>Pregúntame sobre el contenido:</p>
+                        <ul class="chat-ia-suggestions" id="chatIASuggestions">
+                            <li data-suggestion="¿De qué trata este video?">
+                                ¿De qué trata este video?
+                            </li>
+                            <li data-suggestion="¿Cuáles son los temas principales?">
+                                ¿Cuáles son los temas principales?
+                            </li>
+                            <li data-suggestion="¿En qué minuto se menciona...?">
+                                ¿En qué minuto se menciona...?
+                            </li>
+                            <li data-suggestion="Resume los primeros 10 minutos">
+                                Resume los primeros 10 minutos
+                            </li>
+                        </ul>
+                        <p class="chat-ia-rag-hint">
+                            💡 «¿Qué es X?», «¿Dónde aparece X?» o «¿Cómo se hace X?». Pregunta por un momento para crear un marcador.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-ia-typing"
+                 id="chatIATyping"
+                 style="display:none;"
+                 aria-hidden="true">
+                <div class="chat-ia-typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <span class="chat-ia-typing-label">La IA está pensando…</span>
+            </div>
+            <div class="chat-ia-input-area">
+                <div class="chat-ia-input-wrap">
+                    <textarea id="chatIAInput"
+                              class="chat-ia-input"
+                              placeholder="Pregunta algo…"
+                              rows="1"
+                              maxlength="2000"
+                              aria-label="Mensaje para la IA"></textarea>
+                    <button type="button"
+                            class="chat-ia-send-btn"
+                            id="chatIASendBtn"
+                            title="Enviar"
+                            aria-label="Enviar mensaje">
+                        <svg class="icon" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15
+                                     2-15 2z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="chat-ia-input-actions">
+                    <button type="button"
+                            class="chat-ia-action-btn"
+                            id="chatIAClearBtn"
+                            aria-label="Limpiar chat">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0
+                                     2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1
+                                     1H5v2h14V4z" fill="currentColor"/>
+                        </svg>
+                        Limpiar
+                    </button>
+                    <button type="button"
+                            class="chat-ia-action-btn"
+                            id="chatIAExportBtn"
+                            aria-label="Exportar chat">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M19 9h-4V3H9v6H5l7 7
+                                     7-7zM5 18v2h14v-2H5z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Exportar
+                    </button>
+                    <span class="chat-ia-context-badge"
+                          id="chatIAContextBadge">Sin contexto</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── TRANSLATE IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="translateIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="translateIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--translate">
+        <div class="modal-header floating-window__header">
+            <h3 id="translateIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M12.87 15.07l-2.54-2.51.03-.03A17.52
+                             17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5
+                             7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19
+                             6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09
+                             5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12
+                             22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62
+                             7l1.62-4.33L19.12 17h-3.24z"
+                          fill="currentColor"/>
+                </svg>
+                Traducir Subtítulos
+                <span class="summary-model-badge" id="translateIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="translateIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body">
+            <div class="summary-config" id="translateIAConfig">
+                <div class="setting-row">
+                    <label class="setting-label" for="translateIAModel">Modelo</label>
+                    <div class="summary-url-group">
+                        <select id="translateIAModel" class="summary-select">
+                            <option value="">Cargando…</option>
+                        </select>
+                        <button type="button"
+                                id="translateIARefreshModelsBtn"
+                                class="ctrl-btn"
+                                title="Recargar modelos"
+                                aria-label="Recargar modelos">
+                            <svg class="icon" viewBox="0 0 24 24"
+                                 aria-hidden="true">
+                                <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                         4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                         8 7.99 8c3.73 0 6.84-2.55
+                                         7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                         18c-3.31 0-6-2.69-6-6s2.69-6
+                                         6-6c1.66 0 3.14.69 4.22 1.78L13
+                                         11h7V4l-2.35 2.35z"
+                                      fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="translateIAUrl">URL Ollama</label>
+                    <input type="url" id="translateIAUrl"
+                           class="summary-input"
+                           value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                </div>
+                <div class="translate-ia-langs">
+                    <div class="translate-ia-lang-col">
+                        <label class="setting-label" for="translateIAFrom">De</label>
+                        <select id="translateIAFrom" class="summary-select">
+                            <option value="auto">Auto</option>
+                            <option value="inglés">Inglés</option>
+                            <option value="español">Español</option>
+                            <option value="francés">Francés</option>
+                            <option value="alemán">Alemán</option>
+                            <option value="portugués">Portugués</option>
+                            <option value="italiano">Italiano</option>
+                            <option value="japonés">Japonés</option>
+                            <option value="coreano">Coreano</option>
+                            <option value="chino">Chino</option>
+                            <option value="ruso">Ruso</option>
+                            <option value="árabe">Árabe</option>
+                        </select>
+                    </div>
+                    <button type="button"
+                            class="translate-ia-swap-btn"
+                            id="translateIASwapBtn"
+                            title="Intercambiar idiomas"
+                            aria-label="Intercambiar idiomas">
+                        <svg class="icon" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21
+                                     9l-3.99-4v3H10v2h7.01v3L21 9z"
+                                  fill="currentColor"/>
+                        </svg>
+                    </button>
+                    <div class="translate-ia-lang-col">
+                        <label class="setting-label" for="translateIATo">A</label>
+                        <select id="translateIATo" class="summary-select">
+                            <option value="español">Español</option>
+                            <option value="inglés">Inglés</option>
+                            <option value="francés">Francés</option>
+                            <option value="alemán">Alemán</option>
+                            <option value="portugués">Portugués</option>
+                            <option value="italiano">Italiano</option>
+                            <option value="japonés">Japonés</option>
+                            <option value="coreano">Coreano</option>
+                            <option value="chino">Chino</option>
+                            <option value="ruso">Ruso</option>
+                            <option value="árabe">Árabe</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="summary-subtitle-info" id="translateIASubInfo">
+                    <svg class="icon sub-icon" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <rect x="3" y="5" width="18" height="14"
+                              rx="2" ry="2" fill="none"
+                              stroke="currentColor" stroke-width="2"/>
+                        <path d="M7 10h4M15 10h2M7 14h2M11 14h6"
+                              fill="none" stroke="currentColor"
+                              stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span id="translateIASubStatus">Sin subtítulos</span>
+                </div>
+                <div class="summary-actions-row">
+                    <button type="button"
+                            class="btn-primary"
+                            id="translateIAStartBtn">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M12.87 15.07l-2.54-2.51.03-.03A17.52
+                                     17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5
+                                     7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19
+                                     6.69 8h-2c.73 1.63 1.73 3.17 2.98
+                                     4.56z" fill="currentColor"/>
+                        </svg>
+                        Traducir
+                    </button>
+                    <button type="button"
+                            class="btn-secondary"
+                            id="translateIACancelBtn"
+                            style="display:none;">Cancelar</button>
+                </div>
+            </div>
+            <div class="translate-ia-progress"
+                 id="translateIAProgress"
+                 style="display:none;"
+                 aria-live="polite">
+                <div class="translate-ia-progress-header">
+                    <span id="translateIAProgressLabel">Traduciendo…</span>
+                    <span id="translateIAProgressPct">0%</span>
+                </div>
+                <div class="translate-ia-progress-bar-wrap">
+                    <div class="translate-ia-progress-bar"
+                         id="translateIAProgressBar"
+                         role="progressbar"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         aria-valuenow="0"></div>
+                </div>
+                <div class="translate-ia-progress-detail"
+                     id="translateIAProgressDetail">Lote 0/0</div>
+                <div class="translate-ia-preview-scroll"
+                     id="translateIAPreviewScroll">
+                    <table class="translate-ia-preview-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Tiempo</th>
+                                <th scope="col">Original</th>
+                                <th scope="col">Traducción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="translateIAPreviewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="translateIAResult"
+                 style="display:none;margin-top:12px;">
+                <div class="summary-result-header">
+                    <h4>
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9
+                                     19 21 7l-1.41-1.41z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Traducción Completa
+                    </h4>
+                    <div class="summary-result-actions">
+                        <button type="button"
+                                class="btn-primary"
+                                id="translateIAApplyBtn">Aplicar</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="translateIAExportVttBtn">.vtt</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="translateIAExportSrtBtn">.srt</button>
+                        <button type="button"
+                                class="btn-secondary"
+                                id="translateIANewBtn">Nueva</button>
+                    </div>
+                </div>
+                <div class="summary-meta" id="translateIAMeta"></div>
+                <div class="translate-ia-preview-scroll translate-ia-result-scroll"
+                     id="translateIAResultScroll">
+                    <table class="translate-ia-preview-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Tiempo</th>
+                                <th scope="col">Original</th>
+                                <th scope="col">Traducción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="translateIAResultBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── VISION IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="visionIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="visionIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--vision">
+        <div class="modal-header floating-window__header">
+            <h3 id="visionIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73
+                             4.39 6 7.5 11 7.5s9.27-3.11
+                             11-7.5c-1.73-4.39-6-7.5-11-7.5zM12
+                             17c-2.76 0-5-2.24-5-5s2.24-5 5-5
+                             5 2.24 5 5-2.24 5-5 5zm0-8c-1.66
+                             0-3 1.34-3 3s1.34 3 3 3 3-1.34
+                             3-3-1.34-3-3-3z"
+                          fill="currentColor"/>
+                </svg>
+                Visión IA
+                <span class="summary-model-badge" id="visionIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="visionIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body vision-ia-body">
+            <details class="chat-ia-config" id="visionIAConfig">
+                <summary class="chat-ia-config-toggle">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94
+                                 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61
+                                 l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94
+                                 l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24
+                                 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94
+                                 l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61
+                                 l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58
+                                 c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96
+                                 c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24
+                                 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96
+                                 c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58
+                                 zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6
+                                 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                              fill="currentColor"/>
+                    </svg>
+                    Configuración
+                </summary>
+                <div class="chat-ia-config-body">
+                    <div class="setting-row">
+                        <label class="setting-label" for="visionIAModel">
+                            Modelo de visión
+                        </label>
+                        <div class="summary-url-group">
+                            <select id="visionIAModel" class="summary-select">
+                                <option value="">Cargando…</option>
+                            </select>
+                            <button type="button"
+                                    id="visionIARefreshBtn"
+                                    class="ctrl-btn"
+                                    title="Recargar modelos"
+                                    aria-label="Recargar modelos">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true">
+                                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                             4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                             8 7.99 8c3.73 0 6.84-2.55
+                                             7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                             18c-3.31 0-6-2.69-6-6s2.69-6
+                                             6-6c1.66 0 3.14.69 4.22 1.78L13
+                                             11h7V4l-2.35 2.35z"
+                                          fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="visionIAUrl">URL Ollama</label>
+                        <input type="url" id="visionIAUrl"
+                               class="summary-input"
+                               value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                    </div>
+                    <p class="setting-hint">
+                        Modelos: llava, moondream, bakllava, llava-llama3
+                    </p>
+                </div>
+            </details>
+            <div class="vision-ia-capture" id="visionIACaptureArea">
+                <div class="vision-ia-frame-wrap">
+                    <canvas id="visionIACanvas"
+                            class="vision-ia-canvas"
+                            aria-label="Fotograma capturado"></canvas>
+                    <div class="vision-ia-frame-overlay"
+                         id="visionIAFrameOverlay">
+                        <span>Sin captura</span>
+                    </div>
+                    <div class="vision-ia-frame-time"
+                         id="visionIAFrameTime"></div>
+                </div>
+                <button type="button"
+                        class="btn-primary vision-ia-capture-btn"
+                        id="visionIACaptureBtn"
+                        aria-label="Capturar fotograma actual">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M20 5h-3.2l-1.8-2H9L7.2 5H4c-1.1
+                                 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1
+                                 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8
+                                 11c-2.76 0-5-2.24-5-5s2.24-5 5-5
+                                 5 2.24 5 5-2.24 5-5 5z"
+                              fill="currentColor"/>
+                    </svg>
+                    Capturar fotograma
+                </button>
+            </div>
+            <div class="vision-ia-suggestions" id="visionIASuggestions">
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="Describe detalladamente lo que ves en esta imagen">
+                    🔍 Describir
+                </button>
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="¿Qué texto o letras aparecen en esta imagen?">
+                    📝 Texto
+                </button>
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="¿Qué objetos puedes identificar en esta imagen?">
+                    📦 Objetos
+                </button>
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="¿Qué personas aparecen y qué están haciendo?">
+                    👥 Personas
+                </button>
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="¿En qué lugar o escenario se desarrolla esta escena?">
+                    📍 Lugar
+                </button>
+                <button type="button"
+                        class="vision-ia-suggest-btn"
+                        data-prompt="¿Qué emociones o atmósfera transmite esta imagen?">
+                    🎭 Emociones
+                </button>
+            </div>
+            <div class="vision-ia-history"
+                 id="visionIAHistory"
+                 role="log"
+                 aria-live="polite"></div>
+            <div class="chat-ia-typing"
+                 id="visionIATyping"
+                 style="display:none;"
+                 aria-hidden="true">
+                <div class="chat-ia-typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <span class="chat-ia-typing-label">Analizando…</span>
+            </div>
+            <div class="chat-ia-input-area">
+                <div class="chat-ia-input-wrap">
+                    <textarea id="visionIAInput"
+                              class="chat-ia-input"
+                              placeholder="¿Qué quieres saber del fotograma?"
+                              rows="1"
+                              maxlength="1000"
+                              aria-label="Pregunta sobre el fotograma"></textarea>
+                    <button type="button"
+                            class="chat-ia-send-btn"
+                            id="visionIASendBtn"
+                            title="Analizar"
+                            aria-label="Analizar fotograma">
+                        <svg class="icon" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15
+                                     2-15 2z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="chat-ia-input-actions">
+                    <button type="button"
+                            class="chat-ia-action-btn"
+                            id="visionIAClearBtn"
+                            aria-label="Limpiar historial">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0
+                                     2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1
+                                     1H5v2h14V4z" fill="currentColor"/>
+                        </svg>
+                        Limpiar
+                    </button>
+                    <button type="button"
+                            class="chat-ia-action-btn"
+                            id="visionIAExportBtn"
+                            aria-label="Exportar análisis">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M19 9h-4V3H9v6H5l7 7
+                                     7-7zM5 18v2h14v-2H5z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── ETIQUETAS IA ── -->
+<div class="modal-overlay floating-ia-overlay"
+     id="tagsIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="tagsIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--tags">
+        <div class="modal-header floating-window__header">
+            <h3 id="tagsIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M21.41 11.58l-9-9C12.05 2.22 11.55
+                             2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22
+                             1.05.59 1.42l9 9c.36.36.86.58
+                             1.41.58.55 0 1.05-.22
+                             1.41-.59l7-7c.37-.36.59-.86.59-1.41
+                             0-.55-.23-1.06-.59-1.42zM5.5 7C4.67
+                             7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67
+                             7 5.5 6.33 7 5.5 7z"
+                          fill="currentColor"/>
+                </svg>
+                Etiquetas IA
+                <span class="summary-model-badge" id="tagsIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="tagsIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body tags-ia-body">
+            <details class="chat-ia-config" id="tagsIAConfig">
+                <summary class="chat-ia-config-toggle">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94
+                                 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61
+                                 l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94
+                                 l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24
+                                 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94
+                                 l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61
+                                 l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58
+                                 c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96
+                                 c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24
+                                 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96
+                                 c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58
+                                 zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6
+                                 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                              fill="currentColor"/>
+                    </svg>
+                    Configuración
+                </summary>
+                <div class="chat-ia-config-body">
+                    <div class="setting-row">
+                        <label class="setting-label" for="tagsIAModel">Modelo</label>
+                        <div class="summary-url-group">
+                            <select id="tagsIAModel" class="summary-select">
+                                <option value="">Cargando…</option>
+                            </select>
+                            <button type="button"
+                                    id="tagsIARefreshBtn"
+                                    class="ctrl-btn"
+                                    title="Recargar modelos"
+                                    aria-label="Recargar modelos">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true">
+                                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                             4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                             8 7.99 8c3.73 0 6.84-2.55
+                                             7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                             18c-3.31 0-6-2.69-6-6s2.69-6
+                                             6-6c1.66 0 3.14.69 4.22 1.78L13
+                                             11h7V4l-2.35 2.35z"
+                                          fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="tagsIAUrl">URL Ollama</label>
+                        <input type="url" id="tagsIAUrl"
+                               class="summary-input"
+                               value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                    </div>
+                </div>
+            </details>
+            <div class="tags-ia-video-info" id="tagsIAVideoInfo">
+                <div class="tags-ia-video-title"
+                     id="tagsIAVideoTitle">Sin video cargado</div>
+                <div class="tags-ia-video-meta" id="tagsIAVideoMeta"></div>
+            </div>
+            <div class="tags-ia-current" id="tagsIACurrentSection">
+                <div class="tags-ia-section-header">
+                    <span class="tags-ia-section-title">Etiquetas</span>
+                    <span class="tags-ia-count" id="tagsIACount">0 / 8</span>
+                </div>
+                <div class="tags-ia-chips"
+                     id="tagsIAChips"
+                     role="list"
+                     aria-label="Etiquetas generadas">
+                    <div class="tags-ia-empty" id="tagsIAEmpty">
+                        Sin etiquetas · Genera o añade manualmente
+                    </div>
+                </div>
+            </div>
+            <div class="tags-ia-manual">
+                <div class="tags-ia-manual-row">
+                    <select id="tagsIACategory"
+                            class="tags-ia-cat-select"
+                            aria-label="Tipo de etiqueta" hidden>
+                        <option value="tag">🏷️ Etiqueta</option>
+                    </select>
+                    <input type="text"
+                           id="tagsIAManualInput"
+                           class="tags-ia-manual-input"
+                           placeholder="Escribe una etiqueta..."
+                           maxlength="40"
+                           aria-label="Texto de etiqueta manual">
+                    <button type="button"
+                            class="tags-ia-add-btn"
+                            id="tagsIAAddBtn"
+                            title="Añadir etiqueta"
+                            aria-label="Añadir etiqueta">+</button>
+                </div>
+            </div>
+            <div class="tags-ia-generating"
+                 id="tagsIAGenerating"
+                 style="display:none;"
+                 aria-live="polite">
+                <div class="chat-ia-typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <span id="tagsIAStatusText">Analizando contenido…</span>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="tagsIACancelBtn"
+                        style="margin-top:8px;"
+                        aria-label="Cancelar">
+                    Cancelar
+                </button>
+            </div>
+            <div class="tags-ia-actions">
+                <button type="button"
+                        class="btn-primary tags-ia-gen-btn"
+                        id="tagsIAGenerateBtn">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M9 21c0 .55.45 1 1 1h4c.55 0
+                                 1-.45 1-1v-1H9v1zm3-19C8.14 2 5
+                                 5.14 5 9c0 2.38 1.19 4.47 3
+                                 5.74V17c0 .55.45 1 1 1h6c.55
+                                 0 1-.45 1-1v-2.26c1.81-1.27
+                                 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"
+                             fill="currentColor"/>
+                    </svg>
+                    Generar con IA
+                </button>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="tagsIAGenerateAllBtn"
+                        aria-label="Etiquetar todos los videos">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"
+                              fill="currentColor"/>
+                    </svg>
+                    Etiquetar Todos
+                </button>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="tagsIAClearBtn"
+                        aria-label="Limpiar etiquetas">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0
+                                 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1
+                                 1H5v2h14V4z" fill="currentColor"/>
+                    </svg>
+                    Limpiar
+                </button>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="tagsIAExportBtn"
+                        aria-label="Exportar etiquetas">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M19 9h-4V3H9v6H5l7 7
+                                 7-7zM5 18v2h14v-2H5z"
+                              fill="currentColor"/>
+                    </svg>
+                    Exportar
+                </button>
+            </div>
+            <details class="tags-ia-stats-section">
+                <summary class="chat-ia-config-toggle">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path d="M3 20h18M18 20V10M12 20V4M6 20v-6"
+                              fill="none" stroke="currentColor"
+                              stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Estadísticas globales
+                </summary>
+                <div class="tags-ia-global-stats" id="tagsIAGlobalStats">
+                    <p class="tags-ia-stats-hint">
+                        Etiquetas más usadas en tu biblioteca.
+                    </p>
+                    <div class="tags-ia-top-tags" id="tagsIATopTags"></div>
+                </div>
+            </details>
+        </div>
+    </div>
+</div>
+
+<!-- ── COMENTARIOS IA ── -->
+<!-- ↓ id="commentsIAModal" — coincide con WINDOW_IDS en vp-flotante-ia.js
+       y con MODAL_ID en vp-comentarios-ia.js                              -->
+<div class="modal-overlay floating-ia-overlay"
+     id="commentsIAModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="commentaryIAModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+	 <div class="modal-content floating-window floating-window--commentary">
+        <div class="modal-header floating-window__header">
+            <h3 id="commentaryIAModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4
+                             4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55
+                             0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"
+                          fill="currentColor"/>
+                </svg>
+                Comentarios IA
+                <span class="summary-model-badge" id="commentaryIAModelBadge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="none"
+                                stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" fill="none"
+                              stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round"/>
+                    </svg>
+                    Ollama
+                </span>
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="commentaryIAModalClose"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-body floating-window__body commentary-ia-body">
+
+            <!-- Configuración colapsable -->
+            <details class="chat-ia-config" id="commentaryIAConfig" open>
+                <summary class="chat-ia-config-toggle">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94
+                                 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61
+                                 l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94
+                                 l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24
+                                 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94
+                                 l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61
+                                 l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58
+                                 c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96
+                                 c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24
+                                 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96
+                                 c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58
+                                 zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6
+                                 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                              fill="currentColor"/>
+                    </svg>
+                    Configuración
+                </summary>
+                <div class="chat-ia-config-body">
+                    <div class="setting-row">
+                        <label class="setting-label" for="commentaryIAModel">
+                            Modelo
+                        </label>
+                        <div class="summary-url-group">
+                            <select id="commentaryIAModel" class="summary-select">
+                                <option value="">Cargando…</option>
+                            </select>
+                            <button type="button"
+                                    id="commentaryIARefreshBtn"
+                                    class="ctrl-btn"
+                                    title="Recargar modelos"
+                                    aria-label="Recargar modelos">
+                                <svg class="icon" viewBox="0 0 24 24"
+                                     aria-hidden="true" focusable="false">
+                                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12
+                                             4c-4.42 0-7.99 3.58-7.99 8s3.57
+                                             8 7.99 8c3.73 0 6.84-2.55
+                                             7.73-6h-2.08A5.99 5.99 0 0 1 12
+                                             18c-3.31 0-6-2.69-6-6s2.69-6
+                                             6-6c1.66 0 3.14.69 4.22 1.78L13
+                                             11h7V4l-2.35 2.35z"
+                                          fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="commentaryIAUrl">
+                            URL Ollama
+                        </label>
+                        <input type="url"
+                               id="commentaryIAUrl"
+                               class="summary-input"
+                               value="http://localhost:11434" autocomplete="off" spellcheck="false" autocapitalize="off">
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="commentaryIAStyle">
+                            Estilo
+                        </label>
+                        <select id="commentaryIAStyle" class="summary-select">
+                            <option value="curiosidades">🧠 Curiosidades y datos</option>
+                            <option value="historia">📜 Contexto histórico</option>
+                            <option value="educativo">🎓 Explicación educativa</option>
+                            <option value="humor">😄 Comentarios humorísticos</option>
+                            <option value="critica">🎬 Crítica cinematográfica</option>
+                            <option value="tecnico">⚙️ Análisis técnico</option>
+                            <option value="trivia">🎯 Trivia y datos curiosos</option>
+                            <option value="cultural">🌍 Referencias culturales</option>
+                            <option value="custom">✏️ Personalizado</option>
+                        </select>
+                    </div>
+                    <div class="setting-row"
+                         id="commentaryIACustomRow"
+                         style="display:none;">
+                        <label class="setting-label"
+                               for="commentaryIACustomPrompt">
+                            Instrucción personalizada
+                        </label>
+                        <textarea id="commentaryIACustomPrompt"
+                                  class="summary-textarea"
+                                  rows="2"
+                                  placeholder="Ej: Comenta como un narrador de documentales…"></textarea>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-label" for="commentaryIALang">
+                            Idioma
+                        </label>
+                        <select id="commentaryIALang" class="summary-select">
+                            <option value="español">Español</option>
+                            <option value="inglés">Inglés</option>
+                            <option value="francés">Francés</option>
+                            <option value="portugués">Portugués</option>
+                            <option value="alemán">Alemán</option>
+                        </select>
+                    </div>
+                    <div class="summary-subtitle-info"
+                         id="commentaryIASubInfo">
+                        <svg class="icon sub-icon" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="14"
+                                  rx="2" ry="2" fill="none"
+                                  stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 10h4M15 10h2M7 14h2M11 14h6"
+                                  fill="none" stroke="currentColor"
+                                  stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span id="commentaryIASubStatus">Sin subtítulos</span>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Controles principales -->
+            <div class="commentary-ia-controls">
+                <button type="button"
+                        class="btn-primary commentary-ia-start-btn"
+                        id="commentaryIAStartBtn"
+                        aria-label="Generar comentarios IA">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M8 5v14l11-7z" fill="currentColor"/>
+                    </svg>
+                    Generar comentarios
+                </button>
+                <button type="button"
+                        class="btn-secondary"
+                        id="commentaryIAStopBtn"
+                        style="display:none;"
+                        aria-label="Detener generación">
+                    ⏹ Detener
+                </button>
+                <button type="button"
+                        class="btn-secondary"
+                        id="commentaryIAToggleBtn"
+                        style="display:none;"
+                        aria-label="Mostrar u ocultar comentarios"
+                        aria-pressed="true">
+                    👁 Visible
+                </button>
+            </div>
+
+            <!-- Progreso -->
+            <div class="commentary-ia-progress"
+                 id="commentaryIAProgress"
+                 style="display:none;"
+                 role="status"
+                 aria-live="polite">
+                <div class="commentary-ia-progress-header">
+                    <span id="commentaryIAProgressLabel">Procesando…</span>
+                    <span id="commentaryIAProgressPct"
+                          aria-label="Porcentaje completado">0%</span>
+                </div>
+                <div class="translate-ia-progress-bar-wrap"
+                     role="progressbar"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     aria-valuenow="0"
+                     aria-labelledby="commentaryIAProgressLabel">
+                    <div class="translate-ia-progress-bar"
+                         id="commentaryIAProgressBar"></div>
+                </div>
+                <div class="commentary-ia-progress-detail"
+                     id="commentaryIAProgressDetail"
+                     aria-live="off"></div>
+            </div>
+
+            <!-- Lista de comentarios -->
+            <div class="commentary-ia-list"
+                 id="commentaryIAList"
+                 role="log"
+                 aria-live="polite"
+                 aria-label="Comentarios generados">
+                <div class="commentary-ia-empty" id="commentaryIAEmpty">
+                    <p>Los comentarios aparecerán aquí y como subtítulos
+                       sobre el video mientras se reproduce.</p>
+                    <p class="chat-ia-hint">
+                        💡 La IA analiza los subtítulos del video en bloques
+                        y genera comentarios tipo "sabías que…" sincronizados
+                        con el contenido.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="chat-ia-input-actions" style="padding:10px 16px;">
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="commentaryIAClearBtn"
+                        aria-label="Limpiar comentarios">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                    </svg>
+                    Limpiar
+                </button>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="commentaryIAExportBtn"
+                        aria-label="Exportar comentarios como SRT">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M7 10l5 5 5-5M12 15V3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Exportar .srt
+                </button>
+                <button type="button"
+                        class="chat-ia-action-btn"
+                        id="commentaryIAApplyBtn"
+                        style="display:none;"
+                        aria-label="Aplicar comentarios al video como pista">
+                    ✅ Aplicar al video
+                </button>
+            </div>
+
+        </div><!-- /.commentary-ia-body -->
+    </div><!-- /.floating-window--commentary -->
+</div><!-- /#commentsIAModal -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     E L E M E N T O S   G L O B A L E S
+     ══════════════════════════════════════════════════════════════ -->
+
+<div class="notification"
+     id="notification"
+     role="status"
+     aria-live="polite"
+     aria-atomic="true">
+    <span class="notification-icon"
+          id="notifIcon"
+          aria-hidden="true"></span>
+    <span class="notification-message" id="notifMsg"></span>
+    <button type="button"
+            class="notification-close"
+            id="notifClose"
+            aria-label="Cerrar notificación">
+        <svg class="icon" viewBox="0 0 24 24"
+             aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+        </svg>
+    </button>
+</div>
+
+<div class="shortcuts-info"
+     id="shortcutsPanel"
+     role="complementary"
+     aria-labelledby="shortcutsTitle">
+    <div class="shortcuts-header">
+        <h3 id="shortcutsTitle">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="4.5" width="20" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                <path d="M6.5 9h.01M10 9h.01M13.5 9h.01M17 9h.01M8.5 12.5h.01M12 12.5h.01M15.5 12.5h.01M7 16h10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            </svg>
+            Atajos de Teclado
+        </h3>
+        <button type="button"
+                class="icon-btn"
+                id="shortcutsClose"
+                aria-label="Cerrar panel de atajos">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"
+                 aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+    <div class="shortcuts-list">
+        <div class="shortcut-row">
+            <kbd>Espacio</kbd><span>Play / Pause</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>F</kbd><span>Pantalla completa</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>← →</kbd><span>-5s / +5s</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>↑ ↓</kbd><span>Volumen</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>H</kbd><span>Panel atajos</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>L</kbd><span>Loop</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>S</kbd><span>Shuffle</span>
+        </div>
+        <div class="shortcut-row">
+            <kbd>C</kbd><span>Subtítulos</span>
+        </div>
+    </div>
+</div>
+
+<input type="file"
+       id="fileInput"
+       multiple
+       accept="video/*,.mp4,.webm,.ogg,.mov,.avi,.mkv,.m4v,.3gp,.flv,.wmv,.ts,.m2ts,.mts,.vob,.divx,.xvid,.rmvb,.rm,.srt,.vtt,.ass,.ssa"
+       style="display:none;"
+       aria-hidden="true">
+
+<input type="file"
+       id="folderInput"
+       webkitdirectory
+       directory
+       multiple
+       style="display:none;"
+       aria-hidden="true">
+
+<!-- ══════════════════════════════════════════════════════════════
+     B U S C A R   E N   O P E N S U B T I T L E S
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay floating-ia-overlay"
+     id="osModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="osModalTitle"
+     aria-hidden="true"
+     tabindex="-1">
+    <div class="modal-content floating-window floating-window--os">
+        <div class="modal-header floating-window__header">
+            <h3 id="osModalTitle">
+                <svg class="icon" viewBox="0 0 24 24"
+                     aria-hidden="true" focusable="false">
+                    <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11
+                             2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59
+                             1.42l9 9c.36.36.86.58 1.41.58.55 0
+                             1.05-.22 1.41-.59l7-7c.37-.36.59-.86
+                             .59-1.41 0-.55-.23-1.06-.59-1.42zM5.5
+                             7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4
+                             7 4.67 7 5.5 6.33 7 5.5 7z"
+                          fill="currentColor"/>
+                </svg>
+                Buscar en OpenSubtitles
+            </h3>
+            <div class="floating-window__actions">
+                <button type="button"
+                        class="modal-close"
+                        id="osCerrar"
+                        aria-label="Cerrar">
+                    <svg class="icon" viewBox="0 0 24 24"
+                         aria-hidden="true" focusable="false">
+                        <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5
+                                 6.41 10.59 12 5 17.59 6.41 19 12
+                                 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body floating-window__body os-body">
+
+            <!-- Consulta + idioma -->
+            <div class="os-config">
+                <div class="setting-row">
+                    <label class="setting-label" for="osConsulta">Título</label>
+                    <input type="text"
+                           id="osConsulta"
+                           class="summary-input"
+                           placeholder="Ej: The Matrix"
+                           autocomplete="off"
+                           spellcheck="false"
+                           autocapitalize="off">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="osIdioma">Idioma</label>
+                    <select id="osIdioma" class="summary-select"></select>
+                </div>
+                <!-- Archivo actual (v1.4.1: id propio; antes compartía
+                     #osSugerencia con la sugerencia de título y una
+                     pisaba a la otra) -->
+                <div class="summary-subtitle-info" id="osArchivoInfo"
+                     style="display:none;"></div>
+
+                <!-- Sugerencia de título original (v1.4.0) -->
+                <div class="os-sugerencia" id="osSugerenciaTitulo"
+                     style="display:none;"
+                     aria-live="polite"></div>
+
+                <!-- Aviso: los resultados no encajan y no hay cómo
+                     resolver el título (v1.4.1) -->
+                <p class="os-aviso" id="osAvisoTmdb"
+                   style="display:none;"
+                   aria-live="polite"></p>
+                <details class="chat-ia-config" id="osConfig">
+                    <summary class="chat-ia-config-toggle">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true" focusable="false">
+                            <path d="M19.14 12.94c.04-.3.06-.61.06-.94
+                                     0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14
+                                     .23-.41.12-.61l-1.92-3.32c-.12-.22
+                                     -.37-.29-.59-.22l-2.39.96c-.5-.38
+                                     -1.03-.7-1.62-.94l-.36-2.54c-.04-.24
+                                     -.24-.41-.48-.41h-3.84c-.24 0-.43.17
+                                     -.47.41l-.36 2.54c-.59.24-1.13.56
+                                     -1.62.94l-2.39-.96c-.22-.08-.47 0
+                                     -.59.22L2.74 8.87c-.12.21-.08.47.12.61
+                                     l2.03 1.58c-.05.3-.07.59-.07.94s.02.64
+                                     .07.94l-2.03 1.58c-.18.14-.23.41-.12
+                                     .61l1.92 3.32c.12.22.37.29.59.22l2.39
+                                     -.96c.5.38 1.03.7 1.62.94l.36 2.54
+                                     c.05.24.24.41.48.41h3.84c.24 0 .44
+                                     -.17.47-.41l.36-2.54c.59-.24 1.13-.56
+                                     1.62-.94l2.39.96c.22.08.47 0
+                                     .59-.22l1.92-3.32c.12-.22.07-.47-.12
+                                     -.61l-2.01-1.58zM12 15.6c-1.98 0-3.6
+                                     -1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6
+                                     1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                                  fill="currentColor"/>
+                        </svg>
+                        API key y sesión
+                    </summary>
+                    <div class="chat-ia-config-body">
+                        <div class="setting-row">
+                            <label class="setting-label" for="osApiKey">
+                                API Key
+                            </label>
+                            <input type="password"
+                                   id="osApiKey"
+                                   class="summary-input"
+                                   placeholder="Pega aquí tu API key"
+                                   autocomplete="off"
+                                   spellcheck="false"
+                                   autocapitalize="off">
+                        </div>
+                        <p class="setting-hint">
+                            Se obtiene en
+                            opensubtitles.com → tu perfil → API consumers.
+                            Se guarda solo en este navegador.
+                        </p>
+
+                        <!-- ===== Sesión de OpenSubtitles (v1.3.0) ===== -->
+                        <div class="os-sesion-bloque" id="osLoginBloque">
+                            <div class="os-sesion__titulo">Sesión de OpenSubtitles</div>
+
+                            <div class="setting-row">
+                                <label class="setting-label" for="osUsuario">
+                                    Usuario
+                                </label>
+                                <input type="text"
+                                       id="osUsuario"
+                                       class="summary-input"
+                                       placeholder="Tu usuario de opensubtitles.com"
+                                       autocomplete="username"
+                                       spellcheck="false"
+                                       autocapitalize="none">
+                            </div>
+                            <div class="setting-row">
+                                <label class="setting-label" for="osClave">
+                                    Contraseña
+                                </label>
+                                <input type="password"
+                                       id="osClave"
+                                       class="summary-input"
+                                       placeholder="Tu contraseña"
+                                       autocomplete="current-password"
+                                       spellcheck="false">
+                            </div>
+                            <div class="os-sesion__acciones">
+                                <button type="button"
+                                        class="btn-primary"
+                                        id="osLoginBtn">
+                                    Iniciar sesión
+                                </button>
+                            </div>
+                            <p class="setting-hint">
+                                Opcional. Sin sesión puedes descargar
+                                5 subtítulos al día; con sesión, el límite
+                                sube según tu cuenta. La contraseña no se
+                                guarda nunca: solo se envía y se borra.
+                            </p>
+                        </div>
+
+                        <div class="os-sesion-bloque"
+                             id="osSesionBloque"
+                             style="display:none;">
+                            <p class="os-sesion__activa" id="osSesion"></p>
+                            <div class="os-sesion__acciones">
+                                <button type="button"
+                                        class="btn-secondary"
+                                        id="osLogoutBtn">
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ===== API key de TMDB (v1.4.0) ===== -->
+                        <div class="setting-row">
+                            <label class="setting-label" for="osTmdbKey">
+                                API Key de TMDB
+                            </label>
+                            <input type="password"
+                                   id="osTmdbKey"
+                                   class="summary-input"
+                                   placeholder="Opcional: para títulos traducidos"
+                                   autocomplete="off"
+                                   spellcheck="false"
+                                   autocapitalize="off">
+                        </div>
+                        <p class="setting-hint">
+                            Opcional. Solo se usa si el título está
+                            traducido ("Sexy por accidente"): el índice de
+                            OpenSubtitles busca por el título original en
+                            inglés, y TMDB sirve para traducirlo. Se obtiene
+                            en themoviedb.org → tu cuenta → API.
+                        </p>
+
+                        <!-- Guardar el .vtt junto al video (v1.4.1) -->
+                        <div class="setting-row">
+                            <label class="os-check">
+                                <input type="checkbox" id="osGuardarDisco">
+                                <span>Guardar el subtítulo en la carpeta
+                                      del video</span>
+                            </label>
+                        </div>
+                        <p class="setting-hint">
+                            Crea un archivo ".vtt" con el mismo nombre que
+                            el video, junto a él. Solo en navegadores con
+                            acceso al disco (Chrome, Edge, Opera).
+                        </p>
+                    </div>
+                </details>
+                <div class="summary-actions-row">
+                    <button type="button"
+                            class="btn-primary"
+                            id="osBuscarBtn">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"
+                             aria-hidden="true">
+                            <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0
+                                     0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61
+                                     0 3.09-.59 4.23-1.57l.27.28v.79
+                                     l5 4.99L20.49 19l-4.99-5zm-6 0C7.01
+                                     14 5 11.99 5 9.5S7.01 5 9.5 5 14
+                                     7.01 14 9.5 11.99 14 9.5 14z"
+                                  fill="currentColor"/>
+                        </svg>
+                        Buscar
+                    </button>
+                    <button type="button"
+                            class="btn-secondary"
+                            id="osManualBtn">
+                        Cargar desde mi equipo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Estado / carga -->
+            <div class="os-loading" id="osLoading"
+                 style="display:none;"
+                 aria-live="polite">
+                <div class="loading-spinner" role="progressbar"></div>
+                <p class="summary-loading-msg" id="osMensajeCargando">
+                    Buscando…
+                </p>
+                <p class="os-estado" id="osEstado"></p>
+            </div>
+
+            <!-- Sin resultados -->
+            <div class="os-empty" id="osVacio" style="display:none;">
+                <p class="os-empty__msg">
+                    No se encontraron subtítulos con esa búsqueda.
+                </p>
+                <button type="button"
+                        class="btn-secondary"
+                        id="osManualBtnVacio">
+                    Cargar desde mi equipo
+                </button>
+            </div>
+
+            <!-- Error -->
+            <div class="os-error" id="osError" style="display:none;">
+                <p class="os-error__msg" id="osErrorMsg"></p>
+                <div class="os-error__acciones">
+                    <button type="button"
+                            class="btn-primary"
+                            id="osReintentar">
+                        Reintentar
+                    </button>
+                    <button type="button"
+                            class="btn-secondary"
+                            id="osManualBtnError">
+                        Cargar desde mi equipo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ya hay un subtítulo guardado para este video.
+                 Este elemento faltaba en el HTML: el módulo lo busca
+                 con _el('osGuardado') desde la v1.0 y, al no existir,
+                 el aviso "Ya tienes ..." nunca se veía. -->
+            <p class="os-guardado" id="osGuardado"
+               style="display:none;"
+               aria-live="polite"></p>
+
+            <!-- Resultados -->
+            <div class="os-resultados" id="osResultados"
+                 role="list"
+                 style="display:none;"></div>
+
+            <!-- Info de descarga en curso -->
+            <p class="os-msg-descarga" id="osMsgDescarga"
+               style="display:none;"
+               aria-live="polite">Descargando…</p>
+
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     S C R I P T S
+     ══════════════════════════════════════════════════════════════ -->
+<script src="js/vp-debug.js" defer></script>
+<script src="js/vp-base.js" defer></script>
+<script src="js/vp-utilidades.js" defer></script>
+<script src="js/vp-dom.js" defer></script>
+<script src="js/vp-busqueda.js" defer></script>
+<script src="js/vp-db.js" defer></script>
+<script src="js/vp-eliminar.js" defer></script>
+<script src="js/vp-ajustes.js" defer></script>
+<script src="js/vp-subtitulos.js" defer></script>
+<script src="js/vp-opensubtitles.js" defer></script>
+<script src="js/vp-miniaturas.js" defer></script>
+<script src="js/vp-listas.js" defer></script>
+<script src="js/vp-carga.js" defer></script>
+<script src="js/vp-reproductor.js" defer></script>
+<script src="js/vp-reproductor-reproduccion.js" defer></script>
+<script src="js/vp-reproductor-progreso.js" defer></script>
+<script src="js/vp-reproductor-controles.js" defer></script>
+<script src="js/vp-reproductor-eventos.js" defer></script>
+<script src="js/vp-reproductor-sistema.js" defer></script>
+<script src="js/vp-eventos.js" defer></script>
+<script src="js/vp-init.js" defer></script>
+<script src="js/vp-ollama-client.js" defer></script>
+<script src="js/mascota/carga-modulos.js"></script>
+<script src="js/vp-flotante-ia.js" defer></script>
+<script src="js/vp-galaxia.js" defer></script>
+<script src="js/vp-carga-ia-opcional.js" defer></script>
+
+<!-- ── Modo Cine: botón dedicado + toggle lateral ── -->
+<script>
+(function () {
+    'use strict';
+
+    function initTheatreUI() {
+        var teatroBtn           = document.getElementById('teatroBtn');
+        var theatreToggle       = document.getElementById('theatrePlaylistToggle');
+
+        /* ── Sincronizar estado visual del botón ── */
+        function syncBtn() {
+            var activo = document.body.classList.contains('theatre-active');
+            if (teatroBtn) {
+                teatroBtn.classList.toggle('teatro-activo', activo);
+                teatroBtn.setAttribute('aria-pressed', activo ? 'true' : 'false');
+                teatroBtn.setAttribute('data-tooltip', activo ? 'Salir del modo cine' : 'Modo cine');
+            }
+        }
+
+        /* ── Acción de toggle ── */
+        function doToggle() {
+            if (window.VP && window.VP.reproductor && typeof window.VP.reproductor.toggleTeatro === 'function') {
+                window.VP.reproductor.toggleTeatro();
+            } else {
+                // Fallback si VP aún no está listo
+                document.body.classList.toggle('theatre-active');
+                var wrap = document.getElementById('videoPlayerWrap');
+                if (wrap) wrap.classList.toggle('theatre-mode');
+            }
+            syncBtn();
+        }
+
+        /* ── Click en botón principal ── */
+        if (teatroBtn) {
+            teatroBtn.addEventListener('click', doToggle);
+        }
+
+        /* ── Click en pestaña lateral (volver al modo normal) ── */
+        if (theatreToggle) {
+            theatreToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                doToggle();
+            });
+        }
+
+        /* ── Observar cambios de clase en body para sincronizar ── */
+        if (window.MutationObserver) {
+            new MutationObserver(syncBtn)
+                .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        }
+
+        /* ── Atajo de teclado: T para teatro ── */
+        document.addEventListener('keydown', function (e) {
+            if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key !== 't' && e.key !== 'T') return;
+            var el = document.activeElement;
+            if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/i.test(el.tagName))) return;
+            doToggle();
+        });
+
+        // Sincronizar estado inicial
+        syncBtn();
+    }
+
+    // Esperar a que el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTheatreUI);
+    } else {
+        initTheatreUI();
+    }
+})();
+</script>
+
+</body>
+</html>

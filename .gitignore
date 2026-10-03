@@ -1,0 +1,43 @@
+# ─── Logs del servidor ────────────────────────────────────────────────
+*.log
+servidor.log.old
+reparador_log.txt
+
+# ─── Estado generado en tiempo de ejecucion ───────────────────────────
+# se regenera con los valores por defecto
+config.ini
+# copia de seguridad del reparador CORS
+cors_state.json
+# perfiles aislados de Chrome/Edge
+.perfiles/
+
+# ─── Modelos de Ollama (los .gguf nunca se suben) ─────────────────────
+*.gguf
+*.mmproj
+Pega aqui*
+ollama.exe
+
+# ─── Sistema operativo ─────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+System Volume Information/
+
+# ─── Editores ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ─── Notas de trabajo y pruebas ───────────────────────────────────────
+# nota inicial de trabajo; el contenido real esta en README.md
+IDEA.md
+*_preview.html
+out.txt
+nohup.out
+
+# ─── Node (solo necesario para verificar-os.js) ──────────────────────
+node_modules/
+package-lock.json
+package.json

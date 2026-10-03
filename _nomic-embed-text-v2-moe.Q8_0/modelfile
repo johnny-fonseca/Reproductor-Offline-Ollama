@@ -1,0 +1,7 @@
+FROM ./nomic-embed-text-v2-moe.Q8_0.gguf
+
+PARAMETER num_ctx 8192
+PARAMETER num_batch 512
+PARAMETER temperature 0
+
+TEMPLATE ""

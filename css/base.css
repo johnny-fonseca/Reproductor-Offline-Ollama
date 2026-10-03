@@ -1,0 +1,350 @@
+/* =====================================================================
+   BASE.CSS — Reset, tipografía, scrollbar, iconos, botones, animaciones
+   ===================================================================== */
+
+/* ── Reset ── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin:  0;
+    padding: 0;
+}
+
+html {
+    font-size:       16px;
+    scroll-behavior: smooth;
+    overflow-y:      scroll;
+}
+
+/* ── Reducir movimiento para accesibilidad ── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration:        0.01ms !important;
+        animation-iteration-count: 1      !important;
+        transition-duration:       0.01ms !important;
+        scroll-behavior:            auto   !important;
+    }
+}
+
+body {
+    font-family:
+        'Inter', 'Roboto', 'Segoe UI', system-ui,
+        -apple-system, BlinkMacSystemFont, sans-serif;
+    background:  var(--bg-1);
+    color:       var(--text-primary);
+    min-height:  100vh;
+    overflow-x:  hidden;
+    -webkit-font-smoothing:  antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering:          optimizeLegibility;
+    /* Aurora de fondo sutil */
+    background-image: var(--page-gradient);
+    background-attachment: fixed;
+}
+
+/* ── Focus ── */
+:focus:not(:focus-visible) { outline: none; }
+
+:focus-visible {
+    outline:        2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius:  var(--r-sm);
+    transition:     outline-color 0.14s ease, outline-offset 0.14s ease;
+}
+
+/* ── Scrollbar premium (Flotante) ── */
+::-webkit-scrollbar              { width: 7px; height: 7px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background:    rgba(255,255,255,0.14);
+    border-radius: 10px;
+    border: 2px solid var(--bg-1); /* Crea un efecto de padding */
+    transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover  { background: rgba(255,255,255,0.26); }
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.18);
+    border: 2px solid var(--bg-1);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.30); }
+
+/* ── Iconos SVG ── */
+.icon {
+    width:          20px;
+    height:         20px;
+    fill:           currentColor;
+    flex-shrink:    0;
+    display:        inline-block;
+    vertical-align: middle;
+    pointer-events: none;
+}
+.icon-sm  { width: 14px; height: 14px; }
+.icon-md  { width: 18px; height: 18px; }
+.icon-lg  { width: 26px; height: 26px; }
+.icon-xl  { width: 44px; height: 44px; }
+
+/* ── Botones base ── */
+button {
+    cursor:                      pointer;
+    -webkit-tap-highlight-color: transparent;
+    border:      none;
+    background:  none;
+    font-family: inherit;
+    -webkit-user-select: none;
+    user-select: none;
+    color:       inherit;
+}
+
+/* ── Input number sin flechas ── */
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance:      textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+
+/* ── Botones de acción premium ── */
+.btn-primary {
+    display:        flex;
+    align-items:    center;
+    gap:            8px;
+    padding:        10px 20px;
+    border-radius:  var(--r-xl);
+    font-size:      0.88rem;
+    font-weight:    600;
+    letter-spacing: 0.3px;
+    background:     var(--accent);
+    color:          #fff;
+    border:         1px solid rgba(255,255,255,0.12);
+    box-shadow:     0 4px 14px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.22);
+    cursor:         pointer;
+    transition:     background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.btn-primary:hover, .btn-primary:focus-visible {
+    background:  var(--accent-hover);
+    box-shadow:  0 7px 18px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.30);
+    transform:   translateY(-1px);
+}
+.btn-primary:active { transform: translateY(1px); box-shadow: none; }
+
+.btn-secondary {
+    display:       flex;
+    align-items:   center;
+    gap:           8px;
+    padding:       10px 20px;
+    border-radius: var(--r-xl);
+    font-size:     0.88rem;
+    font-weight:   600;
+    background:    var(--bg-3);
+    color:         var(--text-primary);
+    border:        1px solid var(--glass-border);
+    cursor:        pointer;
+    transition:    background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    box-shadow:    var(--shadow-xs);
+}
+.btn-secondary:hover, .btn-secondary:focus-visible {
+    border-color: var(--text-muted);
+    background:   var(--bg-4);
+    color:        #fff;
+}
+
+/* ── Empty state genérico ── */
+.empty-state {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    justify-content: center;
+    padding:         48px 24px;
+    gap:             14px;
+    color:           var(--text-muted);
+    text-align:      center;
+}
+.empty-state p { font-size: 0.9rem; opacity: 0.7; line-height: 1.6; }
+
+/* ── Flash de captura ── */
+.flash-effect::after {
+    content:        "";
+    position:       absolute;
+    inset:          0;
+    background:     white;
+    opacity:        0;
+    pointer-events: none;
+    z-index:        999;
+}
+.flash-active::after {
+    animation: quick-flash 0.4s ease-out;
+}
+@keyframes quick-flash {
+    0%   { opacity: 0.9; }
+    100% { opacity: 0;   }
+}
+
+/* ── Animaciones globales ── */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+@keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+}
+
+/* ── Skeleton loading ── */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-3) 25%,
+        var(--bg-4) 50%,
+        var(--bg-3) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--r-sm);
+}
+
+/* =====================================================================
+   MODO ULTRA RENDIMIENTO
+   ===================================================================== */
+body.ultra-performance,
+body.ultra-performance *,
+body.ultra-performance *::before,
+body.ultra-performance *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+    scroll-behavior:           auto   !important;
+}
+
+body.ultra-performance {
+    background-image: none;
+    -webkit-font-smoothing:  auto;
+    -moz-osx-font-smoothing: auto;
+    text-rendering:          auto;
+}
+
+/* Sin backdrop-filter */
+body.ultra-performance .video-controls,
+body.ultra-performance .center-play-btn,
+body.ultra-performance .loading-overlay,
+body.ultra-performance .up-next-overlay,
+body.ultra-performance .stats-panel,
+body.ultra-performance .speed-menu,
+body.ultra-performance .modal-overlay,
+body.ultra-performance .floating-window,
+body.ultra-performance .floating-window__header,
+body.ultra-performance .thumbnail-audio-btn,
+body.ultra-performance .thumbnail-duration,
+body.ultra-performance .notification,
+body.ultra-performance .hover-preview,
+body.ultra-performance .hover-info-bubble {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter:         none !important;
+}
+
+/* Sombras simplificadas */
+body.ultra-performance .video-player,
+body.ultra-performance .modal-content,
+body.ultra-performance .floating-window,
+body.ultra-performance .notification,
+body.ultra-performance .gallery-item {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.30) !important;
+}
+
+/* Sin transformaciones hover */
+body.ultra-performance .gallery-item:hover,
+body.ultra-performance .add-btn:hover,
+body.ultra-performance .btn-primary:hover {
+    transform: none !important;
+}
+body.ultra-performance .gallery-item:hover .thumbnail-image {
+    transform: none !important;
+}
+
+/* Sin previews */
+body.ultra-performance .thumbnail-preview,
+body.ultra-performance .hover-preview {
+    display: none !important;
+}
+
+body.ultra-performance .video-controls {
+    background: rgba(0,0,0,0.90) !important;
+}
+
+body.ultra-performance .header-logo {
+    animation: none !important;
+    box-shadow: none !important;
+}
+
+body.ultra-performance .summary-ai-badge,
+body.ultra-performance .ai-glass-btn__badge {
+    animation: none !important;
+}
+
+body.ultra-performance .progress-bar,
+body.ultra-performance #videoPlayer,
+body.ultra-performance .loading-spinner {
+    will-change: auto !important;
+}
+
+body.ultra-performance .loading-spinner {
+    animation: spin 1.5s linear infinite !important;
+}
+
+body.ultra-performance .floating-window {
+    resize: none !important;
+}
+
+body.ultra-performance .ai-glass-btn__inner {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter:         none !important;
+    background:              rgba(255,255,255,0.07) !important;
+    box-shadow:              none !important;
+}
+body.ultra-performance .ai-glass-btn__inner::before {
+    display: none !important;
+}
+
+body.ultra-performance ::-webkit-scrollbar-thumb {
+    border:        none !important;
+    border-radius: 0    !important;
+}
+
+/* Indicador ⚡ en header */
+body.ultra-performance header::after {
+    content:        '⚡ Ultra';
+    position:       absolute;
+    right:          160px;
+    top:            50%;
+    transform:      translateY(-50%);
+    font-size:      0.68rem;
+    font-weight:    700;
+    color:          var(--accent);
+    opacity:        0.65;
+    pointer-events: none;
+    letter-spacing: 0.08em;
+}
+.skip-link {
+    visibility: hidden;   /* -- ocupa espacio pero no se ve */
+    opacity: 0;           /* -- invisible pero sigue ocupando espacio */
+}

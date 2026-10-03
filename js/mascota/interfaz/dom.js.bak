@@ -1,0 +1,1005 @@
+    /* ==========================================================================
+       8. DOM, ESTADOS, ANIMACIONES Y PARTÍCULAS
+       ========================================================================== */
+    (function (window, document) {
+        'use strict';
+        var VP = window.VP;
+        var CFG = VP.mochiConfig;
+        var U = VP._mochiUtil || {};
+        var debounce = U.debounce || function (fn) { return fn; };
+        var reducedMotion = U.prefiereMovimientoReducido || function () { return false; };
+        var pickRandom = U.pickRandom || function (a) { return a && a[0] || ''; };
+
+        function frasePerfil(categoria, fallback) {
+            var perfil = VP.mochiPerfilActual ? VP.mochiPerfilActual() : {};
+            var frases = perfil && perfil.frases && perfil.frases[categoria];
+            if (!Array.isArray(frases)) frases = perfil && perfil[categoria];
+            if (!Array.isArray(frases) || !frases.length) frases = fallback;
+            if (U.seleccionarFraseSesion) return U.seleccionarFraseSesion(frases, perfil.id || CFG.genero, categoria);
+            return pickRandom(frases);
+        }
+
+        function estadoPerfil(nombre) {
+            var perfil = VP.mochiPerfilActual ? VP.mochiPerfilActual() : {};
+            var estados = perfil && perfil.estados;
+            if (!Array.isArray(estados) || estados.indexOf(nombre) !== -1) return nombre;
+            var equivalencias = {
+                curioso: 'curiosa', durmiendo: 'dormida', enamorado: 'enamorada',
+                poke: 'juguetona', estirando: 'juguetona', despertando: 'estirando',
+                despidiendo: 'saludando'
+            };
+            var equivalente = equivalencias[nombre];
+            return equivalente && estados.indexOf(equivalente) !== -1 ? equivalente : nombre;
+        }
+
+        function videoActual() {
+            return VP.refs && VP.refs.videoPlayer;
+        }
+
+        function volverAlReposo(sinGestoReposo) {
+            var antes = estadoAnimacionDiagnostico();
+            // Un gesto o comentario puede despertar a Mochi mientras el video
+            // ya estaba pausado (en ese caso no habrá un nuevo evento pause).
+            var video = videoActual();
+            if (video && video.paused && !video.ended) state('durmiendo');
+            else state('idle', sinGestoReposo === true);
+            logAnimacionDiagnostico('volverAlReposo', antes, estadoAnimacionDiagnostico());
+        }
+
+        function finalizarHabla() {
+            if (bubble) bubble.classList.remove('is-open');
+            if (root) root.setAttribute('aria-expanded', 'false');
+            if (!root || root.dataset.state !== 'hablando') return;
+
+            if (typingTimer) clearInterval(typingTimer);
+            typingTimer = null;
+            try { state('idle', true); } catch (_) {}
+
+            // La animación de hablar es infinita en CSS y solo se apaga al
+            // abandonar este estado. Al cerrar el globo, Mochi vuelve siempre
+            // a idle, aunque el video esté pausado; este respaldo también cubre
+            // un fallo de ensure() durante la transición.
+            if (root && root.dataset.state === 'hablando') {
+                root.dataset.state = estadoPerfil('idle');
+                root.setAttribute('aria-expanded', 'false');
+                root.removeAttribute('data-sleepy-speaking');
+                root.removeAttribute('data-talk-variant');
+            }
+        }
+
+        var root = null;
+        var bubble = null;
+        var textoEl = null;
+        var particlesEl = null;
+        var technicalPoseTimer = null;
+        var technicalDetailTimer = null;
+        var ollamaStatusTimer = null;
+        var typingTimer = null;
+        var hideTimer = null;
+        var farewellTimer = null;
+        var gestureTimer = null;
+        var pokeTimer = null;
+        var videoChangeIntentTimer = null;
+        var resizeObserver = null;
+        var limpiarInteraccionesUI = null;
+        var ocultoManualmente = false;
+        var patCount = 0;
+        var lastPatTime = 0;
+        var rachaCaricias = 0;
+        var hoverTimer = null;
+        var hoverActivo = false;
+        var ultimoFocoExterno = null;
+
+        function estadoAnimacionDiagnostico() {
+            var cuerpo = root && root.querySelector('.vp-mochi__body');
+            var estilo = cuerpo && window.getComputedStyle ? window.getComputedStyle(cuerpo) : null;
+            return {
+                state: root && root.dataset.state || null,
+                mood: root && root.dataset.mood || null,
+                talkVariant: root && root.dataset.talkVariant || null,
+                animationName: estilo ? estilo.animationName : null,
+                inlineAnimation: cuerpo && cuerpo.style ? cuerpo.style.animation || '' : ''
+            };
+        }
+
+        function logAnimacionDiagnostico(evento, antes, despues) {
+            if (!root || root.dataset.profile !== 'macho' || !window.console || typeof window.console.info !== 'function') return;
+            if (VP_DEBUG.general || VP_DEBUG.Mochi.general || VP_DEBUG.Mochi.animacion) window.console.info('[Mochi animación runtime]', evento, { antes: antes, despues: despues });
+        }
+
+        function limpiarTimersInterfaz() {
+            if (typingTimer) clearInterval(typingTimer);
+            if (hideTimer) clearTimeout(hideTimer);
+            if (farewellTimer) clearTimeout(farewellTimer);
+            if (gestureTimer) clearTimeout(gestureTimer);
+            if (pokeTimer) clearTimeout(pokeTimer);
+            if (hoverTimer) clearTimeout(hoverTimer);
+            if (videoChangeIntentTimer) clearTimeout(videoChangeIntentTimer);
+            if (technicalPoseTimer) clearTimeout(technicalPoseTimer);
+            if (technicalDetailTimer) clearTimeout(technicalDetailTimer);
+            if (ollamaStatusTimer) clearTimeout(ollamaStatusTimer);
+            typingTimer = hideTimer = farewellTimer = gestureTimer = pokeTimer = hoverTimer = null;
+            videoChangeIntentTimer = technicalPoseTimer = technicalDetailTimer = null;
+            ollamaStatusTimer = null;
+            hoverActivo = false;
+        }
+
+        function remove() {
+            limpiarTimersInterfaz();
+            if (resizeObserver) resizeObserver.disconnect();
+            resizeObserver = null;
+            if (limpiarInteraccionesUI) limpiarInteraccionesUI();
+            limpiarInteraccionesUI = null;
+            window.removeEventListener('resize', position);
+            document.removeEventListener('fullscreenchange', position);
+            if (root && root.parentNode) root.parentNode.removeChild(root);
+            root = bubble = textoEl = particlesEl = null;
+        }
+        function onCerrarClick(e) {
+            e.stopPropagation();
+            ocultoManualmente = true;
+            if (VP.mochiMascota && typeof VP.mochiMascota.hide === 'function') VP.mochiMascota.hide();
+        }
+        function onKeydown(e) {
+            if (e.key === 'Escape' && bubble && bubble.classList.contains('is-open')) {
+                bubble.classList.remove('is-open');
+                state('idle');
+                return;
+            }
+            if (bubble && bubble.classList.contains('is-open')) {
+                // Bloqueo suave del foco: el contenedor ya atrapa tab dentro.
+                if (e.key === 'Tab') {
+                    // Permitido por simplicidad: solo se evita salir del nodo
+                    // cuando el foco está en el propio root.
+                }
+            }
+            if ((e.key === 'Enter' || e.key === ' ') && e.target === root) {
+                e.preventDefault();
+                onBodyClick(e);
+            }
+        }
+        function spawnParticles(kind) {
+            if (!VP.mochiParametro('particleEffects') || !particlesEl) return;
+            if (CFG.respectReducedMotion && reducedMotion()) return;
+            var emojis = kind === 'heart' ? ['♡', '♥', '✦'] : kind === 'star' ? ['✨', '⭐', '✦'] : ['♪', '♡', '✨'];
+            var count = kind === 'heart' ? 3 : 2;
+            for (var i = 0; i < count; i++) {
+                (function (idx) {
+                    var el = document.createElement('span');
+                    el.className = 'vp-mochi__particle';
+                    el.textContent = pickRandom(emojis);
+                    el.style.left = (45 + Math.random() * 18) + '%';
+                    el.style.top = (6 + Math.random() * 10) + 'px';
+                    el.style.fontSize = (12 + Math.random() * 6) + 'px';
+                    el.style.animationDelay = (idx * 90) + 'ms';
+                    el.style.animationDuration = (820 + Math.random() * 280) + 'ms';
+                    particlesEl.appendChild(el);
+                    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1100);
+                })(i);
+            }
+        }
+        function asegurarIndicadoresOllama() {
+            if (!root) return null;
+            var body = root.querySelector('.vp-mochi__body');
+            if (!body) return null;
+            var indicator = body.querySelector('.vp-mochi__ollama-indicator');
+            if (!indicator) {
+                indicator = document.createElement('span');
+                indicator.className = 'vp-mochi__ollama-indicator';
+                indicator.setAttribute('aria-hidden', 'true');
+                body.insertBefore(indicator, body.firstChild);
+            }
+            var items = [
+                ['vp-mochi__ollama-hourglass', '⏳'],
+                ['vp-mochi__ollama-bulb', '💡'],
+                ['vp-mochi__ollama-question', '?']
+            ];
+            items.forEach(function (item) {
+                var icon = indicator.querySelector('.' + item[0]);
+                if (!icon) {
+                    icon = document.createElement('span');
+                    icon.className = item[0];
+                    indicator.appendChild(icon);
+                }
+                if (!icon.textContent || !icon.textContent.trim()) icon.textContent = item[1];
+            });
+            return indicator;
+        }
+        function ensure() {
+            var wrap = VP.refs && VP.refs.videoPlayerWrap;
+            if (!wrap) return false;
+            if (root && root.parentNode === wrap) { asegurarIndicadoresOllama(); return true; }
+            remove();
+            if (!document.getElementById('vp-mochi-motion-pause-style')) {
+                var motionStyle = document.createElement('style');
+                motionStyle.id = 'vp-mochi-motion-pause-style';
+                motionStyle.textContent = '.vp-mochi[data-motion="paused"],.vp-mochi[data-motion="paused"] *, .vp-mochi[data-motion="paused"] *::before, .vp-mochi[data-motion="paused"] *::after{animation-play-state:paused!important;}';
+                (document.head || document.documentElement).appendChild(motionStyle);
+            }
+            if (!document.getElementById('vp-mochi-playlist-motion-style')) {
+                var playlistMotionStyle = document.createElement('style');
+                playlistMotionStyle.id = 'vp-mochi-playlist-motion-style';
+                playlistMotionStyle.textContent =
+                    '.vp-mochi[data-state="cambiandoSiguiente"] .vp-mochi__body{animation:vp-mochi-next-tilt .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="cambiandoAnterior"] .vp-mochi__body{animation:vp-mochi-prev-tilt .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-video-change-intent="siguiente"] .vp-mochi__body{animation:vp-mochi-next-anticipate .32s ease-out both!important;}' +
+                    '.vp-mochi[data-video-change-intent="anterior"] .vp-mochi__body{animation:vp-mochi-prev-anticipate .32s ease-out both!important;}' +
+                    '.vp-mochi[data-state="videoNuevo"] .vp-mochi__body{animation:vp-mochi-video-rebound .8s cubic-bezier(.2,.8,.25,1) both!important;}' +
+                    '.vp-mochi[data-state="detectandoCapitulos"] .vp-mochi__body{animation:vp-mochi-detectar-capitulos 1.5s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="detectandoCapitulos"] .vp-mochi__eye{animation:vp-mochi-mirada-capitulos 1.5s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="detectandoCapitulos"] .vp-mochi__particles::before{content:"✦  ✧  ✦";position:absolute;left:50%;top:-5px;color:#a9dcff;font-size:16px;letter-spacing:5px;white-space:nowrap;text-shadow:0 0 8px rgba(134,205,255,.95);animation:vp-mochi-summary-sparkles 1.5s ease-out both;}' +
+                    '.vp-mochi[data-state="entendiendoTraduccion"] .vp-mochi__body{animation:vp-mochi-translation-nod .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="entendiendoTraduccion"] .vp-mochi__eye{animation:vp-mochi-translation-look .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="entendiendoTraduccion"] .vp-mochi__ollama-bulb{display:inline-block;filter:drop-shadow(0 0 5px #ffe45e);animation:vp-mochi-translation-bulb .9s ease-in-out both;}' +
+                    '.vp-mochi[data-state="sorpresaTraduccion"] .vp-mochi__body{animation:vp-mochi-translation-surprise 1s cubic-bezier(.2,.8,.25,1) both!important;}' +
+                    '.vp-mochi[data-state="sorpresaTraduccion"] .vp-mochi__particles::before{content:"?";position:absolute;left:50%;top:-8px;color:#ffe28a;font-size:21px;font-weight:800;text-shadow:0 0 8px rgba(255,220,120,.9);animation:vp-mochi-translation-question 1s ease-out both;}' +
+                    '.vp-mochi[data-state="conversando"] .vp-mochi__body{animation:vp-mochi-chat-presence 2.6s ease-in-out infinite;}' +
+                    '.vp-mochi[data-state="conversando"] .vp-mochi__face{animation:vp-mochi-chat-entry .8s ease-out both;}' +
+                    '.vp-mochi[data-state="conversando"] .vp-mochi__particles::before{content:"✦  ✧";position:absolute;left:50%;top:-5px;color:#a9dcff;font-size:15px;letter-spacing:5px;white-space:nowrap;text-shadow:0 0 8px rgba(134,205,255,.95);animation:vp-mochi-summary-sparkles .8s ease-out both;}' +
+                    '.vp-mochi[data-state="cerrandoChat"] .vp-mochi__body{animation:vp-mochi-chat-close .7s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="cerrandoChat"] .vp-mochi__face{animation:vp-mochi-chat-return .7s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="despertarReanudacion"] .vp-mochi__body{animation:vp-mochi-resume-stretch 1s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="despertarReanudacion"] .vp-mochi__eye{animation:vp-mochi-resume-eyes 1s ease-out both!important;}' +
+                    '.vp-mochi[data-state="despertarReanudacion"] .vp-mochi__ear{animation:vp-mochi-resume-ears 1s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="celebrandoResumen"] .vp-mochi__body{animation:vp-mochi-summary-bounce 1.2s cubic-bezier(.2,.8,.25,1) infinite!important;}' +
+                    '.vp-mochi[data-state="celebrandoResumen"] .vp-mochi__tail{animation:vp-mochi-summary-tail .72s cubic-bezier(.34,1.2,.64,1) infinite!important;}' +
+                    '@keyframes vp-mochi-summary-tail{0%,100%{transform:rotate(-18deg) scale(1,1)}34%{transform:rotate(14deg) scale(1.06,.96)}58%{transform:rotate(34deg) scale(1.12,.92)}82%{transform:rotate(-6deg) scale(1.02,.99)}}' +
+                    '.vp-mochi[data-state="celebrandoResumen"] .vp-mochi__particles::before{content:"✦  ✧  ✦";position:absolute;left:50%;top:-5px;color:#a9dcff;font-size:16px;letter-spacing:5px;white-space:nowrap;text-shadow:0 0 8px rgba(134,205,255,.95);animation:vp-mochi-summary-sparkles 1.2s ease-out both;}' +
+                    '.vp-mochi[data-state="posandoFotograma"] .vp-mochi__body{animation:vp-mochi-frame-pose 1s ease-out both!important;}' +
+                    '.vp-mochi[data-state="posandoFotograma"] .vp-mochi__particles::before{content:"✦";position:absolute;left:50%;top:-5px;color:#fff2a8;font-size:17px;text-shadow:0 0 9px #ffe36e;animation:vp-mochi-frame-glint 1s ease-out both;}' +
+                    '.vp-mochi[data-state="celebrandoCaptura"] .vp-mochi__body{animation:vp-mochi-summary-bounce 1.3s cubic-bezier(.2,.8,.25,1) both!important;}' +
+                    '.vp-mochi[data-state="celebrandoCaptura"] .vp-mochi__particles::before{content:"✦  ✧  ✦";position:absolute;left:50%;top:-5px;color:#fff2a8;font-size:16px;letter-spacing:5px;white-space:nowrap;text-shadow:0 0 9px rgba(255,227,110,.95);animation:vp-mochi-summary-sparkles 1.3s ease-out both;}' +
+                    '.vp-mochi[data-state="pensativaComentarios"] .vp-mochi__body{animation:vp-mochi-detectar-capitulos 1.5s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="pensativaComentarios"] .vp-mochi__eye{animation:vp-mochi-mirada-capitulos 1.5s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="sorpresaComentarios"] .vp-mochi__body{animation:vp-mochi-translation-surprise 1.1s cubic-bezier(.2,.8,.25,1) both!important;}' +
+                    '.vp-mochi[data-state="sorpresaComentarios"] .vp-mochi__particles::before{content:"!  ✦";position:absolute;left:50%;top:-8px;color:#ffe28a;font-size:19px;font-weight:800;letter-spacing:3px;text-shadow:0 0 8px rgba(255,220,120,.9);animation:vp-mochi-translation-question 1.1s ease-out both;}' +
+                    '.vp-mochi__aura{transition:transform .45s ease,opacity .45s ease;}' +
+                    '.vp-mochi[data-display-mode="pip"] .vp-mochi__aura{animation:none!important;transform:scale(.72);opacity:.42;}' +
+                    '.vp-mochi[data-display-mode="fullscreen"] .vp-mochi__aura{animation:none!important;transform:scale(1.14);opacity:1;}' +
+                    '.vp-mochi[data-display-mode="cine"] .vp-mochi__aura{animation:none!important;transform:scale(.86);opacity:.38;}' +
+                    '.vp-mochi[data-display-mode="cine"] .vp-mochi__shadow{width:54px;opacity:1;}' +
+                    '.vp-mochi[data-state="mirandoModo"] .vp-mochi__body{animation:vp-mochi-mode-look var(--vp-mochi-mode-duration,1.4s) ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="mirandoModo"] .vp-mochi__eye{animation:vp-mochi-mode-eyes var(--vp-mochi-mode-duration,1.4s) ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="mirandoModo"][data-display-mode="pip"] .vp-mochi__aura{animation:vp-mochi-mode-pip var(--vp-mochi-mode-duration,1s) ease both!important;}' +
+                    '.vp-mochi[data-state="mirandoModo"][data-display-mode="fullscreen"] .vp-mochi__aura{animation:vp-mochi-mode-fullscreen var(--vp-mochi-mode-duration,1.2s) ease both!important;}' +
+                    '.vp-mochi[data-state="mirandoModo"][data-display-mode="cine"] .vp-mochi__shadow{animation:vp-mochi-mode-theatre var(--vp-mochi-mode-duration,1.2s) ease both!important;}' +
+                    '.vp-mochi[data-hdr="on"] .vp-mochi__aura{filter:brightness(1.5) drop-shadow(0 0 7px rgba(255,238,158,.85));}' +
+                    '.vp-mochi[data-state="deslumbradaHDR"] .vp-mochi__body{animation:vp-mochi-hdr-flash 1.6s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="deslumbradaHDR"] .vp-mochi__eye{animation:vp-mochi-hdr-eyes 1.6s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="deslumbradaHDR"] .vp-mochi__aura{animation:vp-mochi-hdr-aura 1.6s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="repetirControl"] .vp-mochi__tail{animation:vp-mochi-loop-tail .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="repetirControl"] .vp-mochi__body{animation:vp-mochi-loop-body .9s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="aleatorioControl"] .vp-mochi__eye--left{animation:vp-mochi-shuffle-left 1s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="aleatorioControl"] .vp-mochi__eye--right{animation:vp-mochi-shuffle-right 1s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="aleatorioControl"] .vp-mochi__particles::before{content:"?";position:absolute;left:50%;top:-8px;color:#ffe28a;font-size:21px;font-weight:800;text-shadow:0 0 8px rgba(255,220,120,.9);animation:vp-mochi-translation-question 1s ease-out both;}' +
+                    '.vp-mochi[data-state="abRepeatControl"] .vp-mochi__tail{animation:vp-mochi-ab-tail 1.2s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="somnoliento"] .vp-mochi__body,.vp-mochi[data-state="somnolienta"] .vp-mochi__body{animation:vp-mochi-fall-asleep 1.96s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="somnoliento"] .vp-mochi__eye,.vp-mochi[data-state="somnolienta"] .vp-mochi__eye{animation:vp-mochi-close-eyes 1.96s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="somnoliento"] .vp-mochi__mouth,.vp-mochi[data-state="somnolienta"] .vp-mochi__mouth{animation:vp-mochi-sleep-yawn 1.96s ease-in-out both!important;}' +
+                    '.vp-mochi[data-state="leyendo"] .vp-mochi__face{animation:vp-mochi-reading-look .8s ease-out both;}' +
+                    '.vp-mochi[data-state="leyendo"] .vp-mochi__eye{animation:vp-mochi-reading-eyes .8s ease-out 1 both!important;}' +
+                    '.vp-mochi[data-state="leyendo"] .vp-mochi__ear{animation:none!important;translate:0 1px;rotate:calc(var(--oreja,1)*-3deg);}' +
+                    '.vp-mochi[data-state="desactivandoLectura"] .vp-mochi__face{animation:vp-mochi-reading-return .6s ease-out both;}' +
+                    '.vp-mochi[data-sleepy-speaking="true"] .vp-mochi__eye{animation:vp-mochi-sleepy-speaking-eyes 1.96s ease-in-out both!important;}' +
+                    '@keyframes vp-mochi-next-tilt{0%{transform:rotate(0) translateY(0);}28%{transform:rotate(12deg) translateY(-3px);}58%{transform:rotate(8deg) translateY(-1px);}100%{transform:rotate(0) translateY(0);}}' +
+                    '@keyframes vp-mochi-prev-tilt{0%{transform:rotate(0) translateY(0);}28%{transform:rotate(-12deg) translateY(-3px);}58%{transform:rotate(-8deg) translateY(-1px);}100%{transform:rotate(0) translateY(0);}}' +
+                    '@keyframes vp-mochi-next-anticipate{0%{transform:rotate(0) translateY(0);}72%,100%{transform:rotate(7deg) translateY(-1px);}}' +
+                    '@keyframes vp-mochi-prev-anticipate{0%{transform:rotate(0) translateY(0);}72%,100%{transform:rotate(-7deg) translateY(-1px);}}' +
+                    '@keyframes vp-mochi-video-rebound{0%{transform:translateY(3px) scale(1.08,.9);}38%{transform:translateY(-8px) scale(.94,1.1);}68%{transform:translateY(1px) scale(1.04,.97);}100%{transform:translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-detectar-capitulos{0%{transform:rotate(0) translateY(0) scale(1);}24%{transform:rotate(10deg) translateY(-2px) scale(1.02);}52%{transform:rotate(7deg) translateY(0) scale(1);}78%{transform:rotate(2deg) translateY(-1px);}100%{transform:rotate(0) translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-mirada-capitulos{0%,18%{transform:translateY(0) scaleY(1);}48%,72%{transform:translateY(1.5px) scaleY(.84);}100%{transform:translateY(0) scaleY(1);}}' +
+                    '@keyframes vp-mochi-translation-nod{0%,100%{transform:translateY(0) rotate(0);}35%{transform:translateY(2px) rotate(5deg);}68%{transform:translateY(1px) rotate(3deg);}}' +
+                    '@keyframes vp-mochi-translation-look{0%,20%,100%{transform:translateY(0) scaleY(1);}55%,76%{transform:translateY(1.5px) scaleY(.82);}}' +
+                    '@keyframes vp-mochi-translation-bulb{0%{opacity:0;transform:scale(.45);}28%,76%{opacity:1;transform:scale(1.1);}100%{opacity:.6;transform:scale(1);}}' +
+                    '@keyframes vp-mochi-translation-surprise{0%{transform:translateY(0) scale(1);}20%{transform:translateY(3px) scale(1.08,.88);}48%{transform:translateY(-8px) scale(.94,1.1);}74%{transform:translateY(1px) scale(1.04,.97);}100%{transform:translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-translation-question{0%{opacity:0;transform:translate(-50%,8px) scale(.4) rotate(-15deg);}32%{opacity:1;transform:translate(-50%,-2px) scale(1.12) rotate(7deg);}100%{opacity:0;transform:translate(-50%,-18px) scale(.9) rotate(0);}}' +
+                    '@keyframes vp-mochi-chat-presence{0%,100%{transform:translateY(0) rotate(0) scale(1);}50%{transform:translateY(-1.5px) rotate(1.5deg) scale(1.015,.99);}}' +
+                    '@keyframes vp-mochi-chat-entry{0%{transform:translateY(2px) scale(.9);}45%{transform:translateY(-1px) scale(1.06);}100%{transform:translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-chat-close{0%{transform:translateY(-1px) scale(1.02);}100%{transform:translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-chat-return{0%{transform:translateY(1px);}100%{transform:translateY(0);}}' +
+                    '@keyframes vp-mochi-reading-look{0%{transform:translateY(0);}100%{transform:translateY(2px);}}' +
+                    '@keyframes vp-mochi-reading-eyes{0%,100%{translate:0 0;scale:1 1;}28%,52%{translate:0 2px;scale:1 .92;}76%{translate:0 1px;scale:1 .97;}}' +
+                    '@keyframes vp-mochi-reading-return{0%{transform:translateY(2px);}100%{transform:translateY(0);}}' +
+                    '@keyframes vp-mochi-sleepy-speaking-eyes{0%{scale:1 1;}45%{scale:1 .58;}100%{scale:1 .2;}}' +
+                    '@keyframes vp-mochi-resume-stretch{0%{transform:translateY(3px) rotate(-3deg) scale(1.04,.92);}25%{transform:translateY(1px) scale(1.02,.97);}62%{transform:translateY(-5px) rotate(2deg) scale(.95,1.08);}82%{transform:translateY(1px) scale(1.03,.98);}100%{transform:translateY(0) rotate(0) scale(1);}}' +
+                    '@keyframes vp-mochi-resume-eyes{0%,28%{transform:scaleY(.12);}58%{transform:scaleY(.78);}100%{transform:scaleY(1);}}' +
+                    '@keyframes vp-mochi-resume-ears{0%{rotate:8deg;translate:0 1px;}45%{rotate:-7deg;translate:0 -2px;}100%{rotate:0deg;translate:0 0;}}' +
+                    '@keyframes vp-mochi-frame-pose{0%{transform:rotate(-5deg) translateY(2px) scale(.97,1.02);}35%{transform:rotate(2deg) translateY(-3px) scale(1.02,.98);}65%,100%{transform:rotate(0) translateY(-1px) scale(1.02,.98);}}' +
+                    '@keyframes vp-mochi-frame-glint{0%,25%{opacity:0;transform:translate(-50%,5px) scale(.3) rotate(-25deg);}58%{opacity:1;transform:translate(-50%,-2px) scale(1.2) rotate(10deg);}100%{opacity:.75;transform:translate(-50%,-4px) scale(1) rotate(0);}}' +
+                    '@keyframes vp-mochi-mode-look{0%,100%{transform:rotate(0) translateY(0);}18%{transform:rotate(-8deg) translateY(-1px);}42%{transform:rotate(7deg) translateY(0);}68%{transform:rotate(-3deg) translateY(-1px);}}' +
+                    '@keyframes vp-mochi-mode-eyes{0%,100%{transform:translateX(0);}25%{transform:translateX(-1.5px);}52%{transform:translateX(1.5px);}76%{transform:translateX(0);}}' +
+                    '@keyframes vp-mochi-mode-pip{0%{transform:scale(1);opacity:.9;}65%,100%{transform:scale(.72);opacity:.42;}}' +
+                    '@keyframes vp-mochi-mode-fullscreen{0%{transform:scale(1);opacity:.7;}65%,100%{transform:scale(1.14);opacity:1;}}' +
+                    '@keyframes vp-mochi-mode-theatre{0%{transform:translateX(-50%) scaleX(1);opacity:.75;}65%,100%{transform:translateX(-50%) scaleX(1.3);opacity:1;}}' +
+                    '@keyframes vp-mochi-hdr-flash{0%{filter:brightness(1);}18%{filter:brightness(1.75) saturate(1.12);}42%{filter:brightness(1.32);}72%{filter:brightness(1.08);}100%{filter:brightness(1);}}' +
+                    '@keyframes vp-mochi-hdr-eyes{0%,18%{transform:scaleY(1);}32%{transform:scaleY(.28);}52%,100%{transform:scaleY(1);}}' +
+                    '@keyframes vp-mochi-hdr-aura{0%{transform:scale(1);opacity:.65;filter:brightness(1);}18%{transform:scale(1.24);opacity:1;filter:brightness(1.9) drop-shadow(0 0 11px rgba(255,238,158,.98));}62%,100%{transform:scale(1.08);opacity:.92;filter:brightness(1.5) drop-shadow(0 0 7px rgba(255,238,158,.85));}}' +
+                    '@keyframes vp-mochi-loop-tail{0%,100%{transform:rotate(0);}22%{transform:rotate(25deg) translateY(-1px);}48%{transform:rotate(-18deg);}74%{transform:rotate(14deg);}}' +
+                    '@keyframes vp-mochi-loop-body{0%,100%{transform:translateY(0);}35%{transform:translateY(-2px);}65%{transform:translateY(0);}}' +
+                    '@keyframes vp-mochi-shuffle-left{0%,100%{transform:translateX(0);}32%,66%{transform:translateX(1.7px) scaleY(.9);}}' +
+                    '@keyframes vp-mochi-shuffle-right{0%,100%{transform:translateX(0);}32%,66%{transform:translateX(-1.7px) scaleY(.9);}}' +
+                    '@keyframes vp-mochi-ab-tail{0%,100%{transform:rotate(0);}20%{transform:rotate(-25deg) translateY(-1px);}42%{transform:rotate(25deg);}64%{transform:rotate(-22deg);}82%{transform:rotate(14deg);}}' +
+                    '@keyframes vp-mochi-summary-bounce{0%{transform:translateY(0) scale(1);}22%{transform:translateY(3px) scale(1.08,.9);}52%{transform:translateY(-9px) scale(.94,1.1);}76%{transform:translateY(1px) scale(1.04,.97);}100%{transform:translateY(0) scale(1);}}' +
+                    '@keyframes vp-mochi-summary-sparkles{0%{opacity:0;transform:translate(-50%,8px) scale(.6);}28%{opacity:1;}100%{opacity:0;transform:translate(-50%,-20px) scale(1.15);}}' +
+                    '@keyframes vp-mochi-fall-asleep{0%{transform:translateY(0) scale(1,1);}20%{transform:translateY(3px) scale(1.08,.88);}52%{transform:translateY(-5px) scale(.95,1.1);}76%{transform:translateY(2px) scale(1.05,.94);}100%{transform:translateY(2px) scale(1,.96);}}' +
+                    '@keyframes vp-mochi-close-eyes{0%,24%{transform:scaleY(1);}58%{transform:scaleY(.45);}100%{transform:scaleY(.12);}}' +
+                    '@keyframes vp-mochi-sleep-yawn{0%,15%{transform:translateX(-50%) scale(1,1);}34%,62%{transform:translateX(-50%) scale(1.2,1.7);}100%{transform:translateX(-50%) scale(1,.55);}}';
+                (document.head || document.documentElement).appendChild(playlistMotionStyle);
+            }
+            if (window.getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+            var estilos = VP._mochiEstilos;
+            if (estilos && typeof estilos.inyectar === 'function') estilos.inyectar();
+            root = document.createElement('div');
+            root.className = 'vp-mochi vp-mochi--' + CFG.position;
+            var perfil = VP.mochiPerfilActual();
+            root.dataset.profile = perfil.id || 'hembra';
+            root.setAttribute('aria-label', perfil.ariaLabel || 'Mochi-IA, mascota del reproductor. Haz clic para interactuar');
+            root.setAttribute('aria-live', 'polite');
+            root.setAttribute('aria-expanded', 'false');
+            root.dataset.displayMode = 'normal';
+            root.dataset.ollamaStatus = 'idle';
+            root.setAttribute('tabindex', '0');
+            root.setAttribute('role', 'button');
+            if (document.hidden) root.setAttribute('data-motion', 'paused');
+            root.innerHTML =
+                '<div class="vp-mochi__bubble" role="status" aria-live="polite">' +
+                    '<span class="vp-mochi__cerrar" role="button" tabindex="0" aria-label="Cerrar Mochi-IA" title="Cerrar">×</span>' +
+                    '<span class="vp-mochi__texto"></span>' +
+                '</div>' +
+                '<div class="vp-mochi__wrap" aria-hidden="true">' +
+                    '<span class="vp-mochi__aura"></span>' +
+                    '<span class="vp-mochi__shadow"></span>' +
+                    '<div class="vp-mochi__body">' +
+                        '<span class="vp-mochi__ollama-indicator" aria-hidden="true"><span class="vp-mochi__ollama-hourglass">⏳</span><span class="vp-mochi__ollama-bulb">💡</span><span class="vp-mochi__ollama-question">?</span></span>' +
+                        '<span class="vp-mochi__phase-indicator" aria-hidden="true"></span>' +
+                        '<span class="vp-mochi__sweat" aria-hidden="true"></span>' +
+                        '<i class="vp-mochi__ear vp-mochi__ear--left"></i>' +
+                        '<i class="vp-mochi__ear vp-mochi__ear--right"></i>' +
+                        '<span class="vp-mochi__profile-accessory">' + (perfil.accesorio || '') + '</span>' +
+                        '<span class="vp-mochi__tail"></span>' +
+                        '<span class="vp-mochi__face">' +
+                            '<i class="vp-mochi__eye vp-mochi__eye--left"></i>' +
+                            '<i class="vp-mochi__eye vp-mochi__eye--right"></i>' +
+                            '<i class="vp-mochi__cheek vp-mochi__cheek--left"></i>' +
+                            '<i class="vp-mochi__cheek vp-mochi__cheek--right"></i>' +
+                            '<i class="vp-mochi__nose"></i>' +
+                            '<i class="vp-mochi__mouth"></i>' +
+                        '</span>' +
+                        '<span class="vp-mochi__shine"></span>' +
+                    '</div>' +
+                    '<span class="vp-mochi__name">' + (perfil.nombre || 'Mochi') + ' ♡</span>' +
+                    '<span class="vp-mochi__particles"></span>' +
+                '</div>';
+            wrap.appendChild(root);
+            asegurarIndicadoresOllama();
+            bubble = root.querySelector('.vp-mochi__bubble');
+            textoEl = root.querySelector('.vp-mochi__texto');
+            particlesEl = root.querySelector('.vp-mochi__particles');
+            var cerrarBtn = root.querySelector('.vp-mochi__cerrar');
+            var bodyEl = root.querySelector('.vp-mochi__wrap');
+            if (cerrarBtn) {
+                cerrarBtn.addEventListener('click', onCerrarClick);
+                cerrarBtn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCerrarClick(e); } });
+            }
+            if (bodyEl) {
+                bodyEl.addEventListener('click', onBodyClick);
+                bodyEl.addEventListener('dblclick', onDoubleClick);
+                bodyEl.addEventListener('mouseenter', onBodyMouseEnter);
+                bodyEl.addEventListener('mouseleave', onBodyMouseLeave);
+            }
+            root.addEventListener('keydown', onKeydown);
+            root.addEventListener('focus', function () {
+                ultimoFocoExterno = document.activeElement;
+            });
+            root.addEventListener('blur', function () { /* no-op */ });
+            root.addEventListener('click', function (e) {
+                // si el clic viene del wrap ya se manejó; evita doble disparo
+                if (e.target.closest && e.target.closest('.vp-mochi__wrap')) return;
+                // clic en el contenedor vacío no hace nada
+            });
+            if (typeof ResizeObserver !== 'undefined') {
+                resizeObserver = new ResizeObserver(debounce(position, 120));
+                resizeObserver.observe(wrap);
+            }
+            function actualizarVisibilidad() {
+                var controles = wrap.querySelector('.video-controls');
+                var visibles = wrap.classList.contains('show-controls') ||
+                    wrap.classList.contains('user-active') ||
+                    (controles && controles.classList.contains('always-visible'));
+                root.classList.toggle('vp-mochi--controls-hidden', !visibles);
+            }
+            actualizarVisibilidad();
+            if (typeof MutationObserver !== 'undefined') {
+                var controlsObserver = new MutationObserver(actualizarVisibilidad);
+                controlsObserver.observe(wrap, { attributes: true, attributeFilter: ['class'] });
+                limpiarInteraccionesUI = function () { controlsObserver.disconnect(); };
+            }
+            window.addEventListener('resize', position);
+            document.addEventListener('fullscreenchange', position);
+            position();
+            scheduleIdleGesture();
+            return true;
+        }
+        function position() {
+            if (!root) return;
+            root.classList.remove('vp-mochi--top-left', 'vp-mochi--top-right', 'vp-mochi--bottom-left', 'vp-mochi--bottom-right');
+            root.classList.add('vp-mochi--' + CFG.position);
+        }
+        // Duraciones alineadas con los keyframes. Los estados sostenidos
+        // permanecen activos hasta que la lógica del reproductor los cambie.
+        var DURACION_ESTADO = {
+            poke: { duracion: 550, tipo: 'once' },
+            poke_doble: { duracion: 680, tipo: 'once' },
+            susto: { duracion: 900, tipo: 'once' },
+            estirando: { duracion: 1200, tipo: 'once' },
+            despertando: { duracion: 1000, tipo: 'once' },
+            cambiandoSiguiente: { duracion: 860, tipo: 'once' },
+            cambiandoAnterior: { duracion: 860, tipo: 'once' },
+            videoNuevo: { duracion: 1300, tipo: 'once' },
+            despertarReanudacion: { duracion: 1000, tipo: 'once' },
+            celebrandoResumen: { duracion: 1200, tipo: 'once' },
+            celebrandoCaptura: { duracion: 1300, tipo: 'once' },
+            pensativaComentarios: { duracion: 1500, tipo: 'once' },
+            sorpresaComentarios: { duracion: 1100, tipo: 'once' },
+            mirandoModo: { duracion: 1400, tipo: 'once' },
+            deslumbradaHDR: { duracion: 1600, tipo: 'once' },
+            repetirControl: { duracion: 900, tipo: 'once' },
+            aleatorioControl: { duracion: 1000, tipo: 'once' },
+            abRepeatControl: { duracion: 1200, tipo: 'once' },
+            detectandoCapitulos: { duracion: 1500, tipo: 'once' },
+            entendiendoTraduccion: { duracion: 900, tipo: 'once' },
+            sorpresaTraduccion: { duracion: 1000, tipo: 'once' },
+            cerrandoChat: { duracion: 700, tipo: 'once' },
+            desactivandoLectura: { duracion: 600, tipo: 'once' },
+            asombrada: { duracion: 950, tipo: 'once' },
+            asombrado: { duracion: 950, tipo: 'once' },
+            sorpresa: { duracion: 620, tipo: 'once' },
+            saludando: { duracion: 3000, tipo: 'once' },
+            curioso: { duracion: 1000, tipo: 'once' },
+            curiosa: { duracion: 4200, tipo: 'sostenido' },
+            sorprendida: { duracion: 850, tipo: 'once' },
+            celebrando: { duracion: 3300, tipo: 'once' },
+            somnolienta: { duracion: 4400, tipo: 'sostenido' },
+            somnoliento: { duracion: 4400, tipo: 'sostenido' },
+            juguetona: { duracion: 3200, tipo: 'sostenido' },
+            mimosa: { duracion: 4800, tipo: 'sostenido' },
+            despidiendo: { duracion: 950, tipo: 'sostenido' },
+            acariciada_largo: { duracion: 3200, tipo: 'once' },
+            enamorada: { duracion: 1150, tipo: 'once' },
+            enamorado: { duracion: 1150, tipo: 'once' },
+            timida: { duracion: 2400, tipo: 'sostenido' },
+            timido: { duracion: 1600, tipo: 'sostenido' },
+            orgullosa: { duracion: 1600, tipo: 'sostenido' },
+            orgulloso: { duracion: 2400, tipo: 'sostenido' },
+            confundida: { duracion: 1900, tipo: 'sostenido' },
+            confundido: { duracion: 1800, tipo: 'sostenido' },
+            aburrida: { duracion: 3600, tipo: 'sostenido' },
+            aburrido: { duracion: 2400, tipo: 'sostenido' },
+            tension: { duracion: 600, tipo: 'once' },
+            ternura: { duracion: 1400, tipo: 'once' },
+            nostalgia: { duracion: 4400, tipo: 'sostenido' },
+            dormitando: { duracion: 1800, tipo: 'once' }
+        };
+        var MARGEN_ESTADO_MS = 40;
+        var ultimaVarianteConversacion = 0;
+        var HUMORES_CON_ANIMACION_PROPIA = ['triste', 'enojado', 'feliz', 'intrigado'];
+        function asignarVarianteConversacion() {
+            if (!root) return;
+            if (HUMORES_CON_ANIMACION_PROPIA.indexOf(root.dataset.mood) !== -1) {
+                root.removeAttribute('data-talk-variant');
+                return;
+            }
+            var anterior = Number(ultimaVarianteConversacion);
+            if (!isFinite(anterior) || anterior < 1 || anterior > 35 || Math.floor(anterior) !== anterior) anterior = 0;
+
+            var aleatorio = Math.random();
+            if (!isFinite(aleatorio) || aleatorio < 0) aleatorio = 0;
+            if (aleatorio >= 1) aleatorio = 0.999999999;
+
+            // La primera vez elige entre 35 variantes. Después evita repetir la anterior.
+            var opcion = anterior ? 1 + Math.floor(aleatorio * 34) : 1 + Math.floor(aleatorio * 35);
+            if (anterior && opcion >= anterior) opcion++;
+            ultimaVarianteConversacion = opcion;
+            root.dataset.talkVariant = String(opcion);
+        }
+        function estadoDisponible(name) {
+            return !!DURACION_ESTADO[estadoPerfil(name)];
+        }
+        function state(name, sinGestoReposo, opciones) {
+            if (ocultoManualmente || !ensure()) return;
+            name = estadoPerfil(name);
+            if (name === 'hablando' && root.dataset.ollamaStatus !== 'idle') {
+                VP.mochiMascota.setOllamaStatus('idle');
+            }
+            if (name !== 'idle' && gestureTimer) {
+                clearTimeout(gestureTimer);
+                gestureTimer = null;
+            }
+            // no interrumpir poke/enamorado muy breve si ya está en hablando
+            if (name !== 'hablando' && name !== 'poke' && name !== 'enamorado') {
+                if (typingTimer) clearInterval(typingTimer);
+                if (hideTimer) clearTimeout(hideTimer);
+                typingTimer = hideTimer = null;
+                if (bubble) bubble.classList.remove('is-open');
+            }
+            if (name !== 'hablando') root.removeAttribute('data-sleepy-speaking');
+            if (videoChangeIntentTimer) { clearTimeout(videoChangeIntentTimer); videoChangeIntentTimer = null; }
+            root.removeAttribute('data-video-change-intent');
+            root.dataset.state = name;
+            if (name === 'hablando') asignarVarianteConversacion();
+            root.classList.add('is-visible');
+            if (name === 'hablando') root.setAttribute('aria-expanded', 'true');
+            else root.setAttribute('aria-expanded', 'false');
+            if (pokeTimer) { clearTimeout(pokeTimer); pokeTimer = null; }
+            var info = DURACION_ESTADO[name];
+            if (info && (info.tipo === 'once' || Number(opciones && opciones.duracion) > 0)) {
+                pokeTimer = setTimeout(function () {
+                    if (!root || root.dataset.state !== name) return;
+                    var siguiente = opciones && opciones.siguienteEstado;
+                    var video = videoActual();
+                    if (!siguiente && name === 'despertando' && video && !video.paused && !video.ended) siguiente = 'estirando';
+                    if (siguiente) state(siguiente, true, opciones && opciones.siguienteDuracion ? { duracion: opciones.siguienteDuracion } : undefined);
+                    else volverAlReposo(true);
+                    if (opciones && typeof opciones.alTerminar === 'function') opciones.alTerminar();
+                }, (Number(opciones && opciones.duracion) || info.duracion) + MARGEN_ESTADO_MS);
+            }
+            if (name === 'idle' && sinGestoReposo !== true) scheduleIdleGesture();
+        }
+        function setMood(name) {
+            if (ocultoManualmente || !ensure()) return;
+            var antes = estadoAnimacionDiagnostico();
+            var perfil = VP.mochiPerfilActual ? VP.mochiPerfilActual() : {};
+            if (perfil.humor && typeof perfil.humor.aplicar === 'function') {
+                perfil.humor.aplicar(root, name);
+            }
+            logAnimacionDiagnostico('setMood(' + String(name || '') + ')', antes, estadoAnimacionDiagnostico());
+        }
+        function type(text) {
+            if (typingTimer) clearInterval(typingTimer);
+            if (!bubble || !textoEl) return;
+            bubble.classList.add('is-open');
+            spawnParticles('star');
+            if (CFG.respectReducedMotion && reducedMotion()) {
+                textoEl.textContent = text;
+            } else {
+                textoEl.textContent = '';
+                var i = 0;
+                typingTimer = setInterval(function () {
+                    if (!textoEl || !root || root.dataset.state !== 'hablando') { clearInterval(typingTimer); typingTimer = null; return; }
+                    textoEl.textContent += text.charAt(i++);
+                    if (i >= text.length) { clearInterval(typingTimer); typingTimer = null; }
+                }, Math.max(5, Number(VP.mochiParametro('typewriterMs')) || 22));
+            }
+            if (hideTimer) clearTimeout(hideTimer);
+            hideTimer = setTimeout(function () {
+                if (root && root.dataset.state === 'hablando') finalizarHabla();
+            }, Math.max(2000, Number(VP.mochiParametro('bubbleDurationMs')) || 9500));
+        }
+        function scheduleIdleGesture() {
+            if (gestureTimer) { clearTimeout(gestureTimer); gestureTimer = null; }
+            if (!VP.mochiParametro('idleGestures') || !root || ocultoManualmente || document.hidden ||
+                    root.dataset.state !== 'idle' || (CFG.respectReducedMotion && reducedMotion())) return;
+            var delay = 4200 + Math.random() * 4800;
+            gestureTimer = setTimeout(function () {
+                gestureTimer = null;
+                if (!root || ocultoManualmente || document.hidden || root.dataset.state !== 'idle') return;
+                var pool = CFG.genero === 'hembra'
+                    ? ['curiosa', 'juguetona', 'sorprendida', 'celebrando', 'somnolienta', 'dormitando', 'estirando',
+                       'timida', 'orgullosa', 'confundida', 'aburrida', 'nostalgia']
+                    : ['curioso', 'estirando', 'poke'];
+                var gesto = U.seleccionarFraseSesion
+                    ? U.seleccionarFraseSesion(pool, CFG.genero, 'gestos_idle')
+                    : pickRandom(pool);
+                state(gesto);
+                if (gesto === 'curioso' || gesto === 'curiosa' || gesto === 'celebrando') spawnParticles('star');
+            }, delay);
+        }
+        function onBodyClick(e) {
+            if (e) e.stopPropagation();
+            if (VP.mochiScheduler && typeof VP.mochiScheduler.estado === 'function') {
+                var schedulerEstado = VP.mochiScheduler.estado();
+                if (schedulerEstado.disyuntorAbierto && typeof VP.mochiScheduler.despertarPorClic === 'function' && VP.mochiScheduler.despertarPorClic()) {
+                    state('despertando');
+                    hablarLocal(CFG.genero === 'macho' ? 'Lo intento una vez más.' : 'Lo intentaré una vez más, aquí voy.', 2600);
+                    return;
+                }
+            }
+            var videoParaClick = videoActual();
+            if (CFG.genero === 'macho' && (!videoParaClick || videoParaClick.paused || videoParaClick.ended)) {
+                VP.mochiMascota.dormir();
+                return;
+            }
+            if (!VP.mochiParametro('clickReactions')) return;
+            var now = Date.now();
+            var msDesdeUltimoClic = now - lastPatTime;
+            if (msDesdeUltimoClic > 0 && msDesdeUltimoClic < 160 && estadoDisponible('susto')) {
+                lastPatTime = now;
+                spawnParticles('star');
+                var fraseSusto = frasePerfil('susto', []);
+                state('susto', true, fraseSusto ? {
+                    alTerminar: function () { hablarLocal(fraseSusto, 3600); }
+                } : undefined);
+                return;
+            }
+            // anti-spam suave
+            if (msDesdeUltimoClic < 320) return;
+            // racha: caricias seguidas y a buen ritmo (cada una a ≤1.5s de la
+            // anterior) llevan a una caricia larga en vez de la reacción corta.
+            rachaCaricias = (lastPatTime > 0 && msDesdeUltimoClic <= 1500) ? rachaCaricias + 1 : 1;
+            lastPatTime = now;
+            var primeraCaricia = patCount === 0;
+            patCount++;
+            if (primeraCaricia) {
+                // Saludo o reacción suave la primera vez que el usuario la toca
+                // en la sesión: refuerza el vínculo sin interrumpir el video.
+                var perfilInicial = VP.mochiPerfilActual ? VP.mochiPerfilActual() : {};
+                if (perfilInicial && perfilInicial.frases && perfilInicial.frases.primerToque) {
+                    var frasePrimera = frasePerfil('primerToque', []);
+                    if (frasePrimera) hablarLocal(frasePrimera, 3200);
+                }
+            }
+            if (rachaCaricias >= 3 && estadoDisponible('acariciada_largo')) {
+                rachaCaricias = 0;
+                spawnParticles('heart');
+                hablarLocal(frasePerfil('caricias', []), 4200);
+                state('acariciada_largo');
+                spawnParticles('heart');
+                return;
+            }
+            if (patCount % 7 === 0) {
+                // easter egg cada 7 caricias
+                spawnParticles('heart');
+                hablarLocal(frasePerfil('caricias', []), 4200);
+                state('enamorado');
+                spawnParticles('heart');
+                return;
+            }
+            spawnParticles('heart');
+            state('enamorado');
+            // 35% de las veces dice algo tierno local, sin usar Ollama
+            if (Math.random() < 0.35) {
+                var frase = frasePerfil('caricias', []);
+                // no pises una burbuja de Ollama si está hablando
+                if (!root || root.dataset.state !== 'hablando') {
+                    hablarLocal(frase, 3800);
+                }
+            }
+        }
+        function onDoubleClick(e) {
+            if (e) e.stopPropagation();
+            spawnParticles('star');
+            spawnParticles('heart');
+            state(CFG.genero === 'hembra' ? 'poke_doble' : 'saludando');
+            if (Math.random() < 0.5) {
+                hablarLocal('¡Yay! ¡Doble mimitos! ✨', 3600);
+            }
+        }
+        function onBodyMouseEnter() {
+            if (ocultoManualmente || !root || document.hidden) return;
+            if (CFG.respectReducedMotion && reducedMotion()) return;
+            if (root.dataset.state !== 'idle') return;
+            if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+            hoverActivo = true;
+            var gestoHover = CFG.genero === 'macho' ? 'curioso' : 'curiosa';
+            state(gestoHover, true);
+            hoverTimer = setTimeout(function () {
+                hoverTimer = null;
+                if (hoverActivo && root && (root.dataset.state === 'curiosa' || root.dataset.state === 'curioso')) {
+                    hoverActivo = false;
+                    volverAlReposo(true);
+                }
+            }, 2600);
+        }
+        function onBodyMouseLeave() {
+            if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+            if (!hoverActivo) return;
+            hoverActivo = false;
+            if (root && (root.dataset.state === 'curiosa' || root.dataset.state === 'curioso')) volverAlReposo();
+        }
+        function hablarLocal(text, durationMs) {
+            if (ocultoManualmente || !ensure()) return;
+            if (typingTimer) clearInterval(typingTimer);
+            if (hideTimer) clearTimeout(hideTimer);
+            if (VP.mochiMascota && typeof VP.mochiMascota.setOllamaStatus === 'function') {
+                VP.mochiMascota.setOllamaStatus('idle');
+            }
+            root.removeAttribute('data-sleepy-speaking');
+            root.dataset.state = 'hablando';
+            asignarVarianteConversacion();
+            root.classList.add('is-visible');
+            root.setAttribute('aria-expanded', 'true');
+            bubble.classList.add('is-open');
+            if (CFG.respectReducedMotion && reducedMotion()) {
+                textoEl.textContent = text;
+            } else {
+                textoEl.textContent = '';
+                var i = 0;
+                typingTimer = setInterval(function () {
+                    if (!textoEl || !root) { clearInterval(typingTimer); typingTimer = null; return; }
+                    textoEl.textContent += String(text).charAt(i++);
+                    if (i >= String(text).length) { clearInterval(typingTimer); typingTimer = null; }
+                }, Math.max(5, Number(VP.mochiParametro('typewriterMs')) || 22));
+            }
+            spawnParticles('star');
+            hideTimer = setTimeout(function () {
+                if (root && root.dataset.state === 'hablando') finalizarHabla();
+                else {
+                    if (bubble) bubble.classList.remove('is-open');
+                    if (root) root.setAttribute('aria-expanded', 'false');
+                }
+            }, durationMs || 4200);
+        }
+        VP.mochiMascota = {
+            setState: state,
+            anticiparCambioVideo: function (direccion) {
+                if (direccion !== 'siguiente' && direccion !== 'anterior') return false;
+                if (!ensure()) return false;
+                if (videoChangeIntentTimer) clearTimeout(videoChangeIntentTimer);
+                root.dataset.videoChangeIntent = direccion;
+                videoChangeIntentTimer = setTimeout(function () {
+                    videoChangeIntentTimer = null;
+                    if (root && root.dataset.videoChangeIntent === direccion) root.removeAttribute('data-video-change-intent');
+                }, 2400);
+                return true;
+            },
+            estaHablando: function () { return !!(root && root.dataset.state === 'hablando'); },
+            prepararSuenoDuranteHabla: function () {
+                if (!root || root.dataset.state !== 'hablando') return false;
+                root.setAttribute('data-sleepy-speaking', 'true');
+                return true;
+            },
+            celebrar: function (duracion) {
+                state('celebrandoResumen', true, { duracion: Number(duracion) || 1200 });
+                spawnParticles('star');
+            },
+            posarFotograma: function () {
+                state('posandoFotograma', true);
+            },
+            celebrarCaptura: function () {
+                state('celebrandoCaptura', true, { duracion: 1300 });
+                spawnParticles('star');
+            },
+            pensarComentarios: function () {
+                state('pensativaComentarios', true, { duracion: 1500 });
+            },
+            sorprenderComentarios: function () {
+                state('sorpresaComentarios', true, { duracion: 1100 });
+                spawnParticles('star');
+            },
+            cambiarModo: function (modo) {
+                var duraciones = { normal: 1400, pip: 1000, fullscreen: 1200, cine: 1200 };
+                if (!Object.prototype.hasOwnProperty.call(duraciones, modo) || !ensure()) return false;
+                if (root.dataset.displayMode === modo) return false;
+                root.dataset.displayMode = modo;
+                root.style.setProperty('--vp-mochi-mode-duration', (duraciones[modo] / 1000) + 's');
+                state('mirandoModo', true, { duracion: duraciones[modo], siguienteEstado: 'idle' });
+                return true;
+            },
+            cambiarHDR: function (activo, animar) {
+                if (activo !== true && !root) return false;
+                if (!ensure()) return false;
+                var encendido = activo === true;
+                root.dataset.hdr = encendido ? 'on' : 'off';
+                if (encendido && animar !== false) {
+                    state('deslumbradaHDR', true, { duracion: 1600, siguienteEstado: 'idle' });
+                } else if (!encendido && root.dataset.state === 'deslumbradaHDR') {
+                    state('idle', true);
+                }
+                return true;
+            },
+            reaccionControlReproduccion: function (tipo) {
+                var estados = { repetir: 'repetirControl', aleatorio: 'aleatorioControl', ab: 'abRepeatControl' };
+                var duraciones = { repetir: 900, aleatorio: 1000, ab: 1200 };
+                if (!estados[tipo]) return false;
+                state(estados[tipo], true, { duracion: duraciones[tipo], siguienteEstado: 'idle' });
+                if (tipo === 'aleatorio') spawnParticles('star');
+                return true;
+            },
+            detectarCapitulos: function () {
+                state('detectandoCapitulos', true, { duracion: 1460 });
+                spawnParticles('star');
+            },
+            iniciarConversacion: function () {
+                state('conversando', true);
+                spawnParticles('star');
+            },
+            cerrarConversacion: function () {
+                state('cerrandoChat', true, { duracion: 660, siguienteEstado: 'idle' });
+            },
+            entenderTraduccion: function () {
+                var siguiente = VP.estado && VP.estado.subtitulosActivos ? 'leyendo' : 'idle';
+                state('entendiendoTraduccion', true, { duracion: 860, siguienteEstado: siguiente });
+            },
+            sorpresaTraduccion: function () {
+                var siguiente = VP.estado && VP.estado.subtitulosActivos ? 'leyendo' : 'idle';
+                state('sorpresaTraduccion', true, { duracion: 960, siguienteEstado: siguiente });
+            },
+            setTechnicalState: function (phase, detail) {
+                if (!root) return;
+                // Si el disyuntor se abre justo después del error, conserva la
+                // gota hasta que complete sus 2,35 s aunque cambie la pose a sueño.
+                var conservarGota = phase === 'COOLDOWN' && root.dataset.techDetail === 'ollama-unavailable' && !!technicalDetailTimer;
+                root.dataset.techState = phase;
+                if (technicalPoseTimer) { clearTimeout(technicalPoseTimer); technicalPoseTimer = null; }
+                if (technicalDetailTimer && !conservarGota) { clearTimeout(technicalDetailTimer); technicalDetailTimer = null; }
+                root.removeAttribute('data-tech-pose');
+                if (!conservarGota) root.removeAttribute('data-tech-detail');
+                var durations = { CONTEXT_READY: 800, REQUESTING_OLLAMA: 600, WAITING_OLLAMA: 600, PROCESSING_RESPONSE: 2600, WAITING_TIMING: 2800, COOLDOWN: 3000, ERROR: 800 };
+                var duration = durations[phase];
+                if (!duration) return;
+                root.dataset.techPose = phase === 'WAITING_OLLAMA' ? 'REQUESTING_OLLAMA' : phase;
+                if (phase === 'ERROR') {
+                    var cause = String(detail || '').toLowerCase();
+                    var noDisponible = /ollama_unavailable|conn_refused|econnrefused|connection refused|actively refused|conexi[oó]n rechazada|conexi[oó]n rehusada/.test(cause);
+                    root.dataset.techDetail = noDisponible ? 'ollama-unavailable' : (/timeout|tiempo de espera|agotado/.test(cause) ? 'timeout' : (/vac[ií]a|vacia|empty|sin texto/.test(cause) ? 'empty' : (/network|red|fetch|conexi[oó]n|ollama/.test(cause) ? 'connection' : 'error')));
+                    if (noDisponible) {
+                        technicalDetailTimer = setTimeout(function () {
+                            technicalDetailTimer = null;
+                            if (root) root.removeAttribute('data-tech-detail');
+                        }, 2350);
+                    }
+                }
+                // La pose es solo visual: su expiración no participa del scheduler.
+                technicalPoseTimer = setTimeout(function () {
+                    technicalPoseTimer = null;
+                    if (!root) return;
+                    root.removeAttribute('data-tech-pose');
+                    if (root.dataset.techDetail !== 'ollama-unavailable') root.removeAttribute('data-tech-detail');
+                }, duration);
+            },
+            clearTechnicalState: function () {
+                if (technicalPoseTimer) { clearTimeout(technicalPoseTimer); technicalPoseTimer = null; }
+                if (technicalDetailTimer) { clearTimeout(technicalDetailTimer); technicalDetailTimer = null; }
+                if (root) { root.removeAttribute('data-tech-pose'); root.removeAttribute('data-tech-detail'); root.removeAttribute('data-tech-state'); }
+            },
+            setOllamaStatus: function (status) {
+                if (!ensure()) return;
+                if (ollamaStatusTimer) { clearTimeout(ollamaStatusTimer); ollamaStatusTimer = null; }
+                if (root.dataset.state === 'hablando' && status === 'respuesta') status = 'idle';
+                var indicador = asegurarIndicadoresOllama();
+                root.dataset.ollamaStatus = status === 'waiting' || status === 'respuesta' || status === 'invalida' ? status : 'idle';
+                if (root.dataset.ollamaStatus === 'respuesta') {
+                    // El bombillo señala una respuesta nueva brevemente; no
+                    // debe quedar encendido hasta la siguiente frase de Mochi.
+                    ollamaStatusTimer = setTimeout(function () {
+                        ollamaStatusTimer = null;
+                        if (root && root.dataset.ollamaStatus === 'respuesta') {
+                            root.dataset.ollamaStatus = 'idle';
+                        }
+                    }, 3000);
+                }
+                if (indicador) {
+                    var animados = [indicador].concat(Array.prototype.slice.call(indicador.children));
+                    animados.forEach(function (elemento) { elemento.style.setProperty('animation', 'none', 'important'); });
+                    void indicador.offsetWidth;
+                    animados.forEach(function (elemento) { elemento.style.removeProperty('animation'); });
+                }
+            },
+            setMood: setMood,
+            setMotionPaused: function (paused) {
+                if (!root) return;
+                if (paused) root.setAttribute('data-motion', 'paused');
+                else if (root.getAttribute('data-motion') === 'paused') root.removeAttribute('data-motion');
+            },
+            setGender: function (gender) {
+                var anterior = CFG.genero;
+                CFG.genero = gender === 'macho' ? 'macho' : 'hembra';
+                var perfil = VP.mochiPerfiles[CFG.genero] || VP.mochiPerfilActual();
+                if (VP._mochiEstilos) VP._mochiEstilos.inyectar();
+                if (root) {
+                    root.dataset.profile = perfil.id || 'hembra';
+                    var accesorio = root.querySelector('.vp-mochi__profile-accessory');
+                    var nombre = root.querySelector('.vp-mochi__name');
+                    if (accesorio) accesorio.innerHTML = perfil.accesorio || '';
+                    if (nombre) nombre.textContent = (perfil.nombre || 'Mochi') + ' ♡';
+                    root.setAttribute('aria-label', perfil.ariaLabel || 'Mochi-IA, mascota del reproductor. Haz clic para interactuar');
+                    if (anterior !== CFG.genero) {
+                        if (pokeTimer) clearTimeout(pokeTimer);
+                        root.dataset.state = 'idle';
+                    } else {
+                        root.dataset.state = estadoPerfil(root.dataset.state || 'idle');
+                    }
+                }
+                if (anterior !== CFG.genero && VP.mochiScheduler) VP.mochiScheduler.reset();
+            },
+            hablar: function (text, mood) {
+                if (pokeTimer) { clearTimeout(pokeTimer); pokeTimer = null; }
+                setMood(mood);
+                var gestoPrevio = {
+                    feliz: 'celebrando',
+                    triste: 'ternura',
+                    enojado: 'tension',
+                    curioso: 'asombrada'
+                }[mood];
+                var perfilActual = VP.mochiPerfilActual ? VP.mochiPerfilActual() : {};
+                var estadosPerfil = Array.isArray(perfilActual.estados) ? perfilActual.estados : [];
+                var textoFinal = String(text || '');
+                if (gestoPrevio && estadosPerfil.indexOf(gestoPrevio) !== -1) {
+                    state(gestoPrevio, true, {
+                        siguienteEstado: 'hablando',
+                        alTerminar: function () { type(textoFinal); }
+                    });
+                } else {
+                    state('hablando');
+                    type(textoFinal);
+                }
+            },
+            mostrarAviso: function (text) {
+                if (pokeTimer) { clearTimeout(pokeTimer); pokeTimer = null; }
+                state('hablando');
+                type(String(text || ''));
+            },
+            hablarLocal: hablarLocal,
+            acariciar: onBodyClick,
+            dormir: function () {
+                if (gestureTimer) clearTimeout(gestureTimer);
+                if (CFG.genero === 'hembra') state('dormitando', true, { siguienteEstado: 'durmiendo' });
+                else {
+                    if (typeof VP.mochiMascota.cancelarTransicionSueno === 'function') VP.mochiMascota.cancelarTransicionSueno();
+                    state('somnoliento', true, { duracion: 1960, siguienteEstado: 'durmiendo' });
+                }
+            },
+            show: function () {
+                if (ocultoManualmente) return;
+                if (ensure()) { root.classList.add('is-visible'); state('idle'); }
+            },
+            hide: function (manual) {
+                if (manual !== false) ocultoManualmente = true;
+                limpiarTimersInterfaz();
+                if (root) {
+                    root.removeAttribute('data-tech-pose');
+                    root.removeAttribute('data-tech-detail');
+                    root.removeAttribute('data-tech-state');
+                    root.removeAttribute('data-video-change-intent');
+                    if (VP.mochiMascota && typeof VP.mochiMascota.setOllamaStatus === 'function') {
+                        VP.mochiMascota.setOllamaStatus('idle');
+                    }
+                }
+                if (bubble) bubble.classList.remove('is-open');
+                if (root) {
+                    root.classList.remove('is-visible');
+                    root.setAttribute('aria-expanded', 'false');
+                }
+            },
+            reaccionar: function (categoria) {
+                if (ocultoManualmente) return false;
+                var frase = frasePerfil(categoria, []);
+                if (!frase) return false;
+                var estado = categoria === 'clic' || categoria === 'caricias' ? 'enamorado' :
+                    categoria === 'curiosidad' ? 'curioso' : categoria;
+                state(estado);
+                hablarLocal(frase, 4200);
+                return true;
+            },
+            posicionar: function (posicion) {
+                var posiciones = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+                if (posiciones.indexOf(posicion) === -1) return false;
+                CFG.position = posicion;
+                if (root) {
+                    root.classList.remove('vp-mochi--top-left', 'vp-mochi--top-right', 'vp-mochi--bottom-left', 'vp-mochi--bottom-right');
+                    root.classList.add('vp-mochi--' + posicion);
+                }
+                return true;
+            },
+            despedir: function () {
+                if (ocultoManualmente || !ensure()) return;
+                if (gestureTimer) clearTimeout(gestureTimer);
+                var frase = frasePerfil('despedidas', ['¡Bye! ♡']);
+                hablarLocal(frase, 3200);
+                root.dataset.state = estadoPerfil('despidiendo');
+                if (farewellTimer) clearTimeout(farewellTimer);
+                farewellTimer = setTimeout(function () { if (root && root.dataset.state === estadoPerfil('despidiendo')) remove(); }, 3400);
+            },
+            saludar: function () {
+                if (ocultoManualmente || !ensure()) return;
+                var frase = frasePerfil('saludos', ['¡Hola! ♡']);
+                state('saludando');
+                spawnParticles('heart');
+                hablarLocal(frase, 3800);
+            },
+            reiniciarOcultamiento: function () { ocultoManualmente = false; },
+            mostrar: function () { ocultoManualmente = false; return this.show(); },
+            estaOculto: function () { return ocultoManualmente; },
+            destroy: remove
+        };
+    })(window, document);

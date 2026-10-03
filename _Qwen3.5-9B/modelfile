@@ -1,0 +1,56 @@
+# ============================================================
+#  Modelfile - Qwen3.5-9B-Claude-4.6-HighIQ-INSTRUCT-HERETIC-UNCENSORED
+#  Formato de chat: ChatML (el que usa toda la familia Qwen)
+# ============================================================
+
+# Ruta al archivo del modelo. Debe estar en la misma carpeta que
+# este Modelfile, o pon la ruta completa (ej: C:/modelos/archivo.gguf)
+FROM ./Qwen3.5-9B-Claude-4.6-HighIQ-INSTRUCT-HERETIC-UNCENSORED.Q4_K_M.gguf
+
+# --- Parametros de generacion ---
+PARAMETER temperature 0.7
+PARAMETER top_p 0.8
+PARAMETER top_k 20
+PARAMETER repeat_penalty 1.05
+PARAMETER num_ctx 8192
+
+# Tokens que marcan el fin de un turno (evita que el modelo
+# "siga hablando" solo o invente el siguiente turno)
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+
+# --- Mensaje de sistema por defecto ---
+# Cambialo por lo que quieras que el modelo asuma siempre al arrancar.
+SYSTEM """Eres un asistente de IA util, directo y sin filtros de contenido innecesarios."""
+
+# --- Plantilla de chat (ChatML: <|im_start|>rol ... <|im_end|>) ---
+# Si el propio GGUF ya trae una plantilla incrustada y notas que el
+# formato sale raro, puedes borrar todo este bloque TEMPLATE y dejar
+# que Ollama use la que viene dentro del archivo .gguf.
+TEMPLATE """{{- if .Messages }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ .Content }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- end }}
+{{- if and $last (ne .Role "assistant") }}<|im_start|>assistant
+{{ end }}
+{{- end }}
+{{- else }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}"""
+
+# --- Licencia (opcional, informativo) ---
+LICENSE """Uso personal/local. Revisa la licencia original del modelo base (Qwen) y de cualquier finetune/merge aplicado antes de redistribuir."""
+
+FROM ./Qwen3.5-9B-Claude-4.6-HighIQ-INSTRUCT-HERETIC-UNCENSORED.mmproj-Q8_0.gguf
